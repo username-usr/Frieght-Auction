@@ -30,7 +30,7 @@ This is a single-file application with the following files:
 
 ## Development
 
-No build process required. Simply open `index.html` in a browser or serve via GitHub Pages.
+No build process required. After you fill `config.js`, open `index.html` in a browser or serve via GitHub Pages.
 
 ## Contributing
 

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ram Nath Freight Bidding Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://apis.google.com/js/api.js" defer></script>
+    <script src="config.js" defer></script>
+    <style>
+      body {
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+      <header class="mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p class="text-sm text-slate-500">Ram Nath Freight Bidding Platform</p>
+            <h1 class="text-3xl font-semibold">Dispatcher Freight Dashboard</h1>
+          </div>
+          <div class="flex gap-2">
+            <button id="signInButton" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Sign in</button>
+            <button id="signOutButton" class="px-4 py-2 rounded bg-slate-200 text-slate-800 hover:bg-slate-300 hidden">Sign out</button>
+          </div>
+        </div>
+        <div class="mt-4 text-sm text-slate-600" id="status">Loading authentication...</div>
+      </header>
+
+      <main class="space-y-6">
+        <section id="authNotice" class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+          <p><strong>Sign in required:</strong> Use the Google account authorized for the app to access the dashboard.</p>
+        </section>
+
+        <section id="appContent" class="hidden">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+            <aside class="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div class="text-slate-700 font-semibold">Views</div>
+              <nav class="space-y-2">
+                <button class="tab-button w-full rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100" data-tab="loads">Loads</button>
+                <button class="tab-button w-full rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100" data-tab="bids">Bids</button>
+                <button class="tab-button w-full rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100" data-tab="carriers">Carriers</button>
+              </nav>
+            </aside>
+
+            <section class="space-y-6">
+              <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p id="currentTabLabel" class="text-sm uppercase tracking-[0.18em] text-slate-500">Loads</p>
+                    <h2 id="currentTabTitle" class="mt-2 text-2xl font-semibold">Load Management</h2>
+                  </div>
+                  <div class="text-sm text-slate-500" id="dataSummary">Loading data...</div>
+                </div>
+              </div>
+
+              <div class="grid gap-6 lg:grid-cols-[1fr_430px]">
+                <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm" id="dataTable">
+                      <thead class="bg-slate-50 text-slate-600">
+                        <tr id="tableHeadRow"></tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100" id="tableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div class="mb-4">
+                    <p class="text-sm font-semibold text-slate-700">Add / Edit Record</p>
+                    <p class="text-sm text-slate-500">Use the form below to add new records or edit existing ones.</p>
+                  </div>
+                  <form id="recordForm" class="space-y-4">
+                    <div id="formFields" class="space-y-4"></div>
+                    <input type="hidden" id="recordRowIndex" />
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Save</button>
+                      <button type="button" id="clearFormButton" class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-700 hover:bg-slate-100">Clear</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const DISCOVERY_DOCS = [
+        'https://sheets.googleapis.com/$discovery/rest?version=v4'
+      ];
+      const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+      const TABS = ['loads', 'bids', 'carriers'];
+      const HEADER_CONFIG = {
+        loads: {
+          label: 'Loads',
+          title: 'Load Management',
+          range: 'Loads',
+          columns: ['Load ID', 'Type of Goods', 'Weight', 'Size', 'Origin', 'Destination', 'Date Needed'],
+          fields: [
+            { id: 'loadId', label: 'Load ID', type: 'text', readonly: true },
+            { id: 'typeOfGoods', label: 'Type of Goods', type: 'text' },
+            { id: 'weight', label: 'Weight', type: 'text' },
+            { id: 'size', label: 'Size', type: 'text' },
+            { id: 'origin', label: 'Origin', type: 'text' },
+            { id: 'destination', label: 'Destination', type: 'text' },
+            { id: 'dateNeeded', label: 'Date Needed', type: 'date' }
+          ]
+        },
+        bids: {
+          label: 'Bids',
+          title: 'Bid Management',
+          range: 'Bids',
+          columns: ['Bid ID', 'Load ID', 'Carrier ID', 'Amount', 'Date Submitted'],
+          fields: [
+            { id: 'bidId', label: 'Bid ID', type: 'text', readonly: true },
+            { id: 'loadId', label: 'Load ID', type: 'text' },
+            { id: 'carrierId', label: 'Carrier ID', type: 'text' },
+            { id: 'amount', label: 'Amount', type: 'number' },
+            { id: 'dateSubmitted', label: 'Date Submitted', type: 'date' }
+          ]
+        },
+        carriers: {
+          label: 'Carriers',
+          title: 'Carrier Management',
+          range: 'Carriers',
+          columns: ['Carrier ID', 'Name', 'Contact', 'Rating'],
+          fields: [
+            { id: 'carrierId', label: 'Carrier ID', type: 'text', readonly: true },
+            { id: 'name', label: 'Name', type: 'text' },
+            { id: 'contact', label: 'Contact', type: 'text' },
+            { id: 'rating', label: 'Rating', type: 'number', min: 0, max: 5, step: 0.1 }
+          ]
+        }
+      };
+
+      let currentTab = 'loads';
+      let currentUser = null;
+      let allData = {
+        loads: [],
+        bids: [],
+        carriers: []
+      };
+
+      function showMessage(text, type = 'info') {
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = text;
+        statusEl.className = type === 'error' ? 'text-red-600' : 'text-slate-600';
+      }
+
+      function updateAuthButtons(isSignedIn) {
+        document.getElementById('signInButton').classList.toggle('hidden', isSignedIn);
+        document.getElementById('signOutButton').classList.toggle('hidden', !isSignedIn);
+        document.getElementById('authNotice').classList.toggle('hidden', isSignedIn);
+        document.getElementById('appContent').classList.toggle('hidden', !isSignedIn);
+      }
+
+      function onGapiLoad() {
+        gapi.load('client:auth2', initClient);
+      }
+
+      function initClient() {
+        gapi.client.init({
+          apiKey: '',
+          clientId: CONFIG.CLIENT_ID,
+          discoveryDocs: DISCOVERY_DOCS,
+          scope: SCOPES
+        }).then(() => {
+          const authInstance = gapi.auth2.getAuthInstance();
+          authInstance.isSignedIn.listen(updateSigninStatus);
+          updateSigninStatus(authInstance.isSignedIn.get());
+          document.getElementById('signInButton').addEventListener('click', handleAuthClick);
+          document.getElementById('signOutButton').addEventListener('click', handleSignoutClick);
+          document.getElementById('recordForm').addEventListener('submit', handleFormSubmit);
+          document.getElementById('clearFormButton').addEventListener('click', resetForm);
+          document.querySelectorAll('.tab-button').forEach((button) => {
+            button.addEventListener('click', () => switchTab(button.dataset.tab));
+          });
+          switchTab('loads');
+        }).catch((err) => {
+          showMessage('Failed to initialize Google API: ' + err.details, 'error');
+        });
+      }
+
+      function updateSigninStatus(isSignedIn) {
+        updateAuthButtons(isSignedIn);
+        if (isSignedIn) {
+          currentUser = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
+          showMessage(`Signed in as ${currentUser.getEmail()}`);
+          loadAllData();
+        } else {
+          currentUser = null;
+          showMessage('Please sign in to access the dashboard.');
+        }
+      }
+
+      function handleAuthClick() {
+        gapi.auth2.getAuthInstance().signIn();
+      }
+
+      function handleSignoutClick() {
+        gapi.auth2.getAuthInstance().signOut();
+      }
+
+      function loadAllData() {
+        showMessage('Loading spreadsheet data...');
+        Promise.all([
+          loadSheet('loads'),
+          loadSheet('bids'),
+          loadSheet('carriers')
+        ]).then(() => {
+          renderCurrentTab();
+          showMessage('Data loaded successfully.');
+        }).catch((err) => {
+          showMessage('Failed to load spreadsheet data: ' + err.result?.error?.message || err.message, 'error');
+        });
+      }
+
+      function loadSheet(tabKey) {
+        const tabConfig = HEADER_CONFIG[tabKey];
+        return gapi.client.sheets.spreadsheets.values.get({
+          spreadsheetId: CONFIG.SPREADSHEET_ID,
+          range: `${tabConfig.range}!A2:Z`
+        }).then((response) => {
+          const values = response.result.values || [];
+          allData[tabKey] = values.map((row, index) => {
+            const rowIndex = index + 2;
+            if (tabKey === 'loads') {
+              return {
+                rowIndex,
+                loadId: row[0] || generateId('L'),
+                typeOfGoods: row[1] || '',
+                weight: row[2] || '',
+                size: row[3] || '',
+                origin: row[4] || '',
+                destination: row[5] || '',
+                dateNeeded: row[6] || ''
+              };
+            }
+            if (tabKey === 'bids') {
+              return {
+                rowIndex,
+                bidId: row[0] || generateId('B'),
+                loadId: row[1] || '',
+                carrierId: row[2] || '',
+                amount: row[3] || '',
+                dateSubmitted: row[4] || ''
+              };
+            }
+            if (tabKey === 'carriers') {
+              return {
+                rowIndex,
+                carrierId: row[0] || generateId('C'),
+                name: row[1] || '',
+                contact: row[2] || '',
+                rating: row[3] || ''
+              };
+            }
+            return { rowIndex };
+          });
+        });
+      }
+
+      function switchTab(tabKey) {
+        currentTab = tabKey;
+        document.querySelectorAll('.tab-button').forEach((button) => {
+          button.classList.toggle('bg-slate-100', button.dataset.tab === tabKey);
+          button.classList.toggle('font-semibold', button.dataset.tab === tabKey);
+        });
+        renderCurrentTab();
+      }
+
+      function renderCurrentTab() {
+        const config = HEADER_CONFIG[currentTab];
+        document.getElementById('currentTabLabel').textContent = config.label;
+        document.getElementById('currentTabTitle').textContent = config.title;
+        document.getElementById('dataSummary').textContent = `${allData[currentTab].length} records loaded`;
+        renderTable();
+        renderFormFields();
+      }
+
+      function renderTable() {
+        const config = HEADER_CONFIG[currentTab];
+        const tableHeadRow = document.getElementById('tableHeadRow');
+        const tableBody = document.getElementById('tableBody');
+        tableHeadRow.innerHTML = '';
+        tableBody.innerHTML = '';
+
+        config.columns.forEach((col) => {
+          const th = document.createElement('th');
+          th.textContent = col;
+          th.className = 'px-3 py-3 text-left font-medium text-slate-600';
+          tableHeadRow.appendChild(th);
+        });
+        const actionTh = document.createElement('th');
+        actionTh.textContent = 'Actions';
+        actionTh.className = 'px-3 py-3 text-left font-medium text-slate-600';
+        tableHeadRow.appendChild(actionTh);
+
+        allData[currentTab].forEach((item) => {
+          const row = document.createElement('tr');
+          const values = config.columns.map((header) => {
+            return item[Object.keys(item).find((key) => header.toLowerCase().replace(/\s/g, '') === key.toLowerCase())] || item[header.replace(/\s/g, '')] || '';
+          });
+
+          if (currentTab === 'loads') {
+            values[0] = item.loadId;
+            values[1] = item.typeOfGoods;
+            values[2] = item.weight;
+            values[3] = item.size;
+            values[4] = item.origin;
+            values[5] = item.destination;
+            values[6] = item.dateNeeded;
+          }
+          if (currentTab === 'bids') {
+            values[0] = item.bidId;
+            values[1] = item.loadId;
+            values[2] = item.carrierId;
+            values[3] = item.amount;
+            values[4] = item.dateSubmitted;
+          }
+          if (currentTab === 'carriers') {
+            values[0] = item.carrierId;
+            values[1] = item.name;
+            values[2] = item.contact;
+            values[3] = item.rating;
+          }
+
+          values.forEach((value) => {
+            const td = document.createElement('td');
+            td.textContent = value;
+            td.className = 'whitespace-nowrap px-3 py-3 text-slate-700';
+            row.appendChild(td);
+          });
+
+          const actionsTd = document.createElement('td');
+          actionsTd.className = 'whitespace-nowrap px-3 py-3';
+          const editBtn = document.createElement('button');
+          editBtn.textContent = 'Edit';
+          editBtn.className = 'mr-2 rounded-lg border border-blue-600 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50';
+          editBtn.addEventListener('click', () => loadRecordForEdit(item));
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.className = 'rounded-lg border border-red-600 px-3 py-1 text-sm text-red-600 hover:bg-red-50';
+          deleteBtn.addEventListener('click', () => deleteRecord(item));
+          actionsTd.appendChild(editBtn);
+          actionsTd.appendChild(deleteBtn);
+          row.appendChild(actionsTd);
+          tableBody.appendChild(row);
+        });
+      }
+
+      function renderFormFields() {
+        const config = HEADER_CONFIG[currentTab];
+        const fieldsContainer = document.getElementById('formFields');
+        fieldsContainer.innerHTML = '';
+        config.fields.forEach((field) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'space-y-2';
+          const label = document.createElement('label');
+          label.setAttribute('for', field.id);
+          label.className = 'text-sm font-medium text-slate-700';
+          label.textContent = field.label;
+          const input = document.createElement('input');
+          input.type = field.type;
+          input.id = field.id;
+          input.name = field.id;
+          input.className = 'w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+          if (field.readonly) input.readOnly = true;
+          if (field.min !== undefined) input.min = field.min;
+          if (field.max !== undefined) input.max = field.max;
+          if (field.step !== undefined) input.step = field.step;
+          wrapper.appendChild(label);
+          wrapper.appendChild(input);
+          fieldsContainer.appendChild(wrapper);
+        });
+        resetForm();
+      }
+
+      function populateForm(item = null) {
+        const config = HEADER_CONFIG[currentTab];
+        config.fields.forEach((field) => {
+          const input = document.getElementById(field.id);
+          if (!input) return;
+          if (item) {
+            input.value = item[field.id] || '';
+          } else {
+            if (field.readonly) {
+              input.value = generateId(field.id === 'loadId' ? 'L' : field.id === 'bidId' ? 'B' : 'C');
+            } else {
+              input.value = '';
+            }
+          }
+        });
+        document.getElementById('recordRowIndex').value = item ? item.rowIndex : '';
+      }
+
+      function resetForm() {
+        populateForm(null);
+      }
+
+      function generateId(prefix) {
+        return `${prefix}-${Date.now().toString().slice(-6)}`;
+      }
+
+      function handleFormSubmit(event) {
+        event.preventDefault();
+        const config = HEADER_CONFIG[currentTab];
+        const formData = {};
+        config.fields.forEach((field) => {
+          const input = document.getElementById(field.id);
+          formData[field.id] = input?.value || '';
+        });
+        const rowIndex = document.getElementById('recordRowIndex').value;
+
+        if (rowIndex) {
+          updateRecord(rowIndex, formData);
+        } else {
+          appendRecord(formData);
+        }
+      }
+
+      function loadRecordForEdit(item) {
+        populateForm(item);
+      }
+
+      function appendRecord(record) {
+        const config = HEADER_CONFIG[currentTab];
+        const rowValues = config.fields.map((field) => record[field.id]);
+        gapi.client.sheets.spreadsheets.values.append({
+          spreadsheetId: CONFIG.SPREADSHEET_ID,
+          range: `${config.range}!A1`,
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          resource: {
+            values: [rowValues]
+          }
+        }).then(() => {
+          showMessage('Record added successfully.');
+          loadSheet(currentTab).then(() => {
+            renderCurrentTab();
+            resetForm();
+          });
+        }).catch((err) => {
+          showMessage('Failed to add record: ' + err.result?.error?.message || err.message, 'error');
+        });
+      }
+
+      function updateRecord(rowIndex, record) {
+        const config = HEADER_CONFIG[currentTab];
+        const rowValues = config.fields.map((field) => record[field.id]);
+        gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: CONFIG.SPREADSHEET_ID,
+          range: `${config.range}!A${rowIndex}`,
+          valueInputOption: 'RAW',
+          resource: {
+            values: [rowValues]
+          }
+        }).then(() => {
+          showMessage('Record updated successfully.');
+          loadSheet(currentTab).then(() => {
+            renderCurrentTab();
+            resetForm();
+          });
+        }).catch((err) => {
+          showMessage('Failed to update record: ' + err.result?.error?.message || err.message, 'error');
+        });
+      }
+
+      function deleteRecord(item) {
+        if (!confirm('Delete this record?')) {
+          return;
+        }
+        const config = HEADER_CONFIG[currentTab];
+        gapi.client.sheets.spreadsheets.values.clear({
+          spreadsheetId: CONFIG.SPREADSHEET_ID,
+          range: `${config.range}!A${item.rowIndex}:Z${item.rowIndex}`
+        }).then(() => {
+          showMessage('Record deleted successfully.');
+          loadSheet(currentTab).then(() => {
+            renderCurrentTab();
+          });
+        }).catch((err) => {
+          showMessage('Failed to delete record: ' + err.result?.error?.message || err.message, 'error');
+        });
+      }
+
+      function normalizeRecords() {
+        const config = HEADER_CONFIG[currentTab];
+        const summary = document.getElementById('dataSummary');
+        summary.textContent = `${allData[currentTab].length} records loaded`;
+      }
+
+      window.addEventListener('load', onGapiLoad);
+    </script>
+  </body>
+</html>

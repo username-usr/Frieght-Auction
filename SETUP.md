@@ -57,10 +57,10 @@ Add the following column headers in row 1:
 2. Click "Create Credentials" > "OAuth 2.0 Client ID".
 3. Choose "Web application" as the application type.
 4. For "Authorized JavaScript origins", add:
-   - `https://[your-github-username].github.io`
-   - `https://[your-github-username].github.io/[repo-name]/`
+   - `https://prrithive14.github.io`
+   - `https://prrithive14.github.io/Ram-Nath-freight-bidding-platform/`
 5. For "Authorized redirect URIs", add:
-   - `https://[your-github-username].github.io/[repo-name]/`
+   - `https://prrithive14.github.io/Ram-Nath-freight-bidding-platform/`
 6. Note the **Client ID**.
 
 ## Step 5: Configure OAuth Consent Screen
@@ -80,10 +80,10 @@ Add the following column headers in row 1:
 
 ## Step 7: Deploy to GitHub Pages
 
-1. Create a new repository on GitHub with the name you chose.
+1. Create a new repository on GitHub named `Ram-Nath-freight-bidding-platform`.
 2. Push this project to the repository.
-3. In repository settings, enable GitHub Pages from the main branch.
-4. Update the OAuth credentials with the actual GitHub Pages URL if not already done.
+3. In repository settings, enable GitHub Pages from the `main` branch.
+4. Update the OAuth credentials if the GitHub Pages URL changes.
 
 ## Next Steps
 
