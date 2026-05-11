@@ -1,37 +1,36 @@
-# Ram Nath Freight Bidding Platform - Phase 1
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Overview
+## Getting Started
 
-The Ram Nath Freight Bidding Platform is a web-based application designed to streamline freight logistics operations. Phase 1 focuses on core bidding functionality, allowing dispatchers to manage loads, submit bids, and track carriers through an intuitive interface.
+First, run the development server:
 
-## Features
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-- **Load Management**: View and manage available freight loads
-- **Bidding System**: Submit competitive bids on loads
-- **Carrier Tracking**: Monitor carrier information and performance
-- **Google Sheets Integration**: Uses Google Sheets as the backend database for easy data management
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Technology Stack
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-- **Frontend**: Single-file HTML with vanilla JavaScript
-- **Styling**: Tailwind CSS via CDN
-- **Backend**: Google Sheets API
-- **Authentication**: Google OAuth 2.0
-- **Hosting**: GitHub Pages
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Project Structure
+## Learn More
 
-This is a single-file application with the following files:
-- `index.html` - Main application file (to be created in Session 2)
-- `config.js` - Configuration file with API keys (gitignored)
-- `config.example.js` - Example configuration file
-- `README.md` - This file
-- `SETUP.md` - Setup instructions
+To learn more about Next.js, take a look at the following resources:
 
-## Development
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-No build process required. After you fill `config.js`, open `index.html` in a browser or serve via GitHub Pages.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Contributing
+## Deploy on Vercel
 
-This project is developed in sessions. Current session: 1/5 (Scaffolding and Setup)
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
