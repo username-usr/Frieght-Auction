@@ -1,10 +1,11 @@
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import {
   BidsTableRealtime,
   type BidRowData,
 } from '@/components/loads/bids-table-realtime'
 import { CancelLoadButton } from '@/components/loads/cancel-load-button'
+import { getOperatorContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import {
   formatAbsoluteIST,
@@ -46,20 +47,11 @@ export default async function LoadDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  // We need the viewer's operator id to decide whether to show the Cancel
-  // button. The /dashboard layout already redirects unauthenticated users
-  // and renders the "not provisioned" banner if there's no operator row,
-  // but we re-resolve here so we have the id without leaning on context.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: currentOperator } = await supabase
-    .from('operators')
-    .select('id')
-    .eq('id', user.id)
-    .maybeSingle()
+  // The /dashboard layout already redirects non-operators to /not-authorized
+  // before this page renders, so `operator` is guaranteed here. We use the
+  // memoized helper to avoid a second round-trip — the layout's call and
+  // this call share one Supabase fetch via React's cache().
+  const { operator: currentOperator } = await getOperatorContext()
 
   const { data: loadRaw, error: loadError } = await supabase
     .from('loads')
@@ -156,6 +148,15 @@ export default async function LoadDetailPage({
             .
           </p>
         ) : null}
+
+        <div className="mt-3 text-sm">
+          <Link
+            href={`/dashboard/loads/${load.id}/audit`}
+            className="font-medium text-slate-700 hover:text-slate-900"
+          >
+            View activity log →
+          </Link>
+        </div>
 
         <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
           <div>

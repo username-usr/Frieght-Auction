@@ -1,30 +1,29 @@
 import { redirect } from 'next/navigation'
 import { Toaster } from 'sonner'
-import { createClient } from '@/lib/supabase/server'
+import { getOperatorContext } from '@/lib/auth'
 import { signOut } from './actions'
 
 // The dashboard layout is the auth + provisioning gate for everything under
 // /dashboard. It also hosts the top bar (brand, user info, sign-out) so the
 // individual pages don't have to repeat it.
+//
+// Two-step guard:
+//   1. No auth user → /login (you haven't signed in)
+//   2. Signed in but no operators row → /not-authorized (you've signed in
+//      with an account that isn't provisioned). The /not-authorized page
+//      lives OUTSIDE /dashboard so it doesn't recurse into this guard.
+//
+// getOperatorContext() is memoized per request (React cache()), so pages
+// under /dashboard that need the operator row can call it again without
+// triggering a second round-trip.
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user, operator } = await getOperatorContext()
   if (!user) redirect('/login')
-
-  // RLS: the operators-table policy only returns a row when the caller is
-  // already an operator. So `operator` is null for an authenticated-but-not-
-  // provisioned user, which we render as the amber banner instead of `children`.
-  const { data: operator } = await supabase
-    .from('operators')
-    .select('full_name, role')
-    .eq('id', user.id)
-    .maybeSingle()
+  if (!operator) redirect('/not-authorized')
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -39,16 +38,10 @@ export default async function DashboardLayout({
             </p>
           </div>
           <div className="flex items-center gap-4">
-            {operator ? (
-              <div className="text-right text-sm leading-tight">
-                <p className="font-medium text-slate-900">{operator.full_name}</p>
-                <p className="text-xs capitalize text-slate-600">
-                  {operator.role}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-700">{user.email}</p>
-            )}
+            <div className="text-right text-sm leading-tight">
+              <p className="font-medium text-slate-900">{operator.full_name}</p>
+              <p className="text-xs capitalize text-slate-600">{operator.role}</p>
+            </div>
             <form action={signOut}>
               <button
                 type="submit"
@@ -61,23 +54,7 @@ export default async function DashboardLayout({
         </div>
       </header>
       <Toaster richColors position="top-right" closeButton />
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        {operator ? (
-          children
-        ) : (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
-            <p className="font-semibold">
-              You&apos;re authenticated but not yet provisioned as an operator.
-            </p>
-            <p className="mt-2">
-              Ask the admin to add a row in the{' '}
-              <span className="font-mono">operators</span> table for{' '}
-              {user.email}. Your auth user id is{' '}
-              <span className="font-mono">{user.id}</span>.
-            </p>
-          </div>
-        )}
-      </main>
+      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
     </div>
   )
 }
