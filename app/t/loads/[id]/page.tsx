@@ -10,6 +10,8 @@ import { requireTrucker } from '@/lib/trucker'
 import type { LoadStatus, TruckType, BidStatus } from '@/lib/types'
 import { PlaceBidForm } from './place-bid-form'
 
+export const dynamic = 'force-dynamic'
+
 type LoadDetail = {
   id: string
   origin_city: string

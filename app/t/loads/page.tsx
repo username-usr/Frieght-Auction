@@ -8,6 +8,8 @@ import {
 import { requireTrucker } from '@/lib/trucker'
 import type { LoadStatus, TruckType } from '@/lib/types'
 
+export const dynamic = 'force-dynamic'
+
 type LoadRow = {
   id: string
   origin_city: string
