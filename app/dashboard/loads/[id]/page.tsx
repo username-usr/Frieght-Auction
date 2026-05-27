@@ -19,7 +19,9 @@ type LoadDetailRow = {
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_kg: number
+  weight_value: number | string
+  weight_unit: 'kg' | 'liters'
+  quantity_value: number | string
   pickup_deadline: string
   reference_price_paise: number | null
   notes: string | null
@@ -30,6 +32,9 @@ type LoadDetailRow = {
   cancellation_reason: string | null
   posted_by_operator: { full_name: string } | null
   cancelled_by_operator: { full_name: string } | null
+  product: { name: string } | null
+  container: { name: string } | null
+  quantity_unit: { name: string } | null
 }
 
 const LOAD_STATUS_BADGE: Record<LoadStatus, string> = {
@@ -56,11 +61,14 @@ export default async function LoadDetailPage({
   const { data: loadRaw, error: loadError } = await supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required, weight_kg,
-       pickup_deadline, reference_price_paise, notes, status, created_at,
+      `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
+       quantity_value, pickup_deadline, reference_price_paise, notes, status, created_at,
        posted_by, cancelled_at, cancellation_reason,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
-       cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name)`
+       cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name),
+       product:product_names!product_name_id(name),
+       container:container_types!container_type_id(name),
+       quantity_unit:quantity_units!quantity_unit_id(name)`
     )
     .eq('id', id)
     .maybeSingle()
@@ -76,6 +84,8 @@ export default async function LoadDetailPage({
   if (!loadRaw) notFound()
 
   const load = loadRaw as unknown as LoadDetailRow
+  const weightValue = Number(load.weight_value)
+  const quantityValue = Number(load.quantity_value)
 
   // ALL bids for this load — no status filter (UX decision in step 4: show
   // lost/withdrawn too so the operator has the full audit trail). The
@@ -161,6 +171,31 @@ export default async function LoadDetailPage({
         <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
           <div>
             <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Product
+            </dt>
+            <dd className="mt-1 text-sm text-slate-900">
+              {load.product?.name ?? '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Quantity
+            </dt>
+            <dd className="mt-1 text-sm tabular-nums text-slate-900">
+              {quantityValue.toLocaleString('en-IN')}{' '}
+              {load.quantity_unit?.name ?? ''}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Container
+            </dt>
+            <dd className="mt-1 text-sm text-slate-900">
+              {load.container?.name ?? '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
               Truck type
             </dt>
             <dd className="mt-1 text-sm capitalize text-slate-900">
@@ -172,7 +207,7 @@ export default async function LoadDetailPage({
               Weight
             </dt>
             <dd className="mt-1 text-sm tabular-nums text-slate-900">
-              {load.weight_kg.toLocaleString('en-IN')} kg
+              {weightValue.toLocaleString('en-IN')} {load.weight_unit}
             </dd>
           </div>
           <div>

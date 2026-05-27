@@ -19,16 +19,24 @@ const VALID_FILTERS: FilterValue[] = [
 // Shape returned by the embedded-resource select below. Manually typed because
 // we're not running `supabase gen types` yet; small enough that hand-keeping
 // it in sync is fine.
+//
+// weight_value and quantity_value are NUMERIC in Postgres; supabase-js returns
+// them as string (precision-preserving) or number depending on the driver
+// version. Type them as the union and call Number() at the display boundary.
 type LoadsSelectRow = {
   id: string
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_kg: number
+  weight_value: number | string
+  weight_unit: 'kg' | 'liters'
+  quantity_value: number | string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
   posted_by_operator: { full_name: string } | null
+  product: { name: string } | null
+  quantity_unit: { name: string } | null
   bids: { count: number }[]
 }
 
@@ -48,9 +56,11 @@ export default async function LoadsPage({
   let query = supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required, weight_kg,
-       pickup_deadline, status, created_at,
+      `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
+       quantity_value, pickup_deadline, status, created_at,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
+       product:product_names!product_name_id(name),
+       quantity_unit:quantity_units!quantity_unit_id(name),
        bids(count)`
     )
     .order('created_at', { ascending: false })
@@ -78,7 +88,11 @@ export default async function LoadsPage({
     origin_city: row.origin_city,
     destination_city: row.destination_city,
     truck_type_required: row.truck_type_required,
-    weight_kg: row.weight_kg,
+    weight_value: Number(row.weight_value),
+    weight_unit: row.weight_unit,
+    quantity_value: Number(row.quantity_value),
+    quantity_unit_name: row.quantity_unit?.name ?? '—',
+    product_name: row.product?.name ?? '—',
     pickup_deadline: row.pickup_deadline,
     status: row.status,
     created_at: row.created_at,

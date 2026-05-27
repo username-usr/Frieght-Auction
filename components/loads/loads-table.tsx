@@ -11,7 +11,11 @@ export type LoadListRow = {
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_kg: number
+  weight_value: number
+  weight_unit: 'kg' | 'liters'
+  quantity_value: number
+  quantity_unit_name: string
+  product_name: string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
@@ -19,9 +23,11 @@ export type LoadListRow = {
   bid_count: number
 }
 
-const SELECT = `id, origin_city, destination_city, truck_type_required, weight_kg,
-  pickup_deadline, status, created_at,
+const SELECT = `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
+  quantity_value, pickup_deadline, status, created_at,
   posted_by_operator:operators!loads_posted_by_fkey(full_name),
+  product:product_names!product_name_id(name),
+  quantity_unit:quantity_units!quantity_unit_id(name),
   bids(count)`
 
 type LoadsSelectRow = {
@@ -29,11 +35,15 @@ type LoadsSelectRow = {
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_kg: number
+  weight_value: number | string
+  weight_unit: 'kg' | 'liters'
+  quantity_value: number | string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
   posted_by_operator: { full_name: string } | null
+  product: { name: string } | null
+  quantity_unit: { name: string } | null
   bids: { count: number }[]
 }
 
@@ -43,7 +53,11 @@ function normalize(row: LoadsSelectRow): LoadListRow {
     origin_city: row.origin_city,
     destination_city: row.destination_city,
     truck_type_required: row.truck_type_required,
-    weight_kg: row.weight_kg,
+    weight_value: Number(row.weight_value),
+    weight_unit: row.weight_unit,
+    quantity_value: Number(row.quantity_value),
+    quantity_unit_name: row.quantity_unit?.name ?? '—',
+    product_name: row.product?.name ?? '—',
     pickup_deadline: row.pickup_deadline,
     status: row.status,
     created_at: row.created_at,
@@ -166,13 +180,15 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
           <tr>
             <th className="px-4 py-3 text-left">Posted</th>
             <th className="px-4 py-3 text-left">Origin → Destination</th>
+            <th className="px-4 py-3 text-left">Product</th>
             <th className="px-4 py-3 text-left">Truck</th>
+            <th className="px-4 py-3 text-right">Quantity</th>
             <th className="px-4 py-3 text-right">Weight</th>
             <th className="px-4 py-3 text-left">Pickup</th>
             <th className="px-4 py-3 text-left">Status</th>
@@ -186,10 +202,6 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
             return (
               <tr
                 key={load.id}
-                onClick={() => {
-                  // eslint-disable-next-line no-console
-                  console.log('row clicked:', load.id)
-                }}
                 className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${
                   flashing ? 'bg-blue-100' : ''
                 }`}
@@ -200,11 +212,18 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                 <td className="px-4 py-3 font-medium text-slate-900">
                   {load.origin_city} → {load.destination_city}
                 </td>
+                <td className="px-4 py-3 text-slate-700">
+                  {load.product_name}
+                </td>
                 <td className="px-4 py-3 capitalize text-slate-700">
                   {load.truck_type_required}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                  {load.weight_kg.toLocaleString('en-IN')} kg
+                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700">
+                  {load.quantity_value.toLocaleString('en-IN')}{' '}
+                  {load.quantity_unit_name}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700">
+                  {load.weight_value.toLocaleString('en-IN')} {load.weight_unit}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                   {formatAbsoluteIST(load.pickup_deadline)}

@@ -15,10 +15,14 @@ type LoadRow = {
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_kg: number
+  weight_value: number | string
+  weight_unit: 'kg' | 'liters'
+  quantity_value: number | string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
+  product: { name: string } | null
+  quantity_unit: { name: string } | null
   bids: { amount_paise: number; status: string }[]
 }
 
@@ -34,8 +38,10 @@ export default async function TruckerLoadsPage() {
   const { data: loadsRaw, error } = await supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required, weight_kg,
-       pickup_deadline, status, created_at,
+      `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
+       quantity_value, pickup_deadline, status, created_at,
+       product:product_names!product_name_id(name),
+       quantity_unit:quantity_units!quantity_unit_id(name),
        bids:bids!bids_load_id_fkey(amount_paise, status)`
     )
     .eq('status', 'open')
@@ -59,10 +65,16 @@ export default async function TruckerLoadsPage() {
     const activeAmounts = row.bids
       .filter((b) => b.status === 'active')
       .map((b) => b.amount_paise)
-    const lowBid = activeAmounts.length > 0
-      ? Math.min(...activeAmounts)
-      : null
-    return { ...row, lowBid }
+    const lowBid =
+      activeAmounts.length > 0 ? Math.min(...activeAmounts) : null
+    return {
+      ...row,
+      weightNum: Number(row.weight_value),
+      quantityNum: Number(row.quantity_value),
+      productName: row.product?.name ?? null,
+      quantityUnitName: row.quantity_unit?.name ?? null,
+      lowBid,
+    }
   })
 
   return (
@@ -105,6 +117,16 @@ export default async function TruckerLoadsPage() {
                 <p className="text-base font-semibold text-slate-900">
                   {load.origin_city} → {load.destination_city}
                 </p>
+                {load.productName ? (
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {load.quantityNum.toLocaleString('en-IN')}
+                    {load.quantityUnitName ? ` ${load.quantityUnitName}` : ''}{' '}
+                    of{' '}
+                    <span className="font-medium text-slate-900">
+                      {load.productName}
+                    </span>
+                  </p>
+                ) : null}
                 <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
                   <div>
                     <dt className="text-slate-500">Truck</dt>
@@ -115,7 +137,7 @@ export default async function TruckerLoadsPage() {
                   <div>
                     <dt className="text-slate-500">Weight</dt>
                     <dd className="tabular-nums text-slate-900">
-                      {load.weight_kg.toLocaleString('en-IN')} kg
+                      {load.weightNum.toLocaleString('en-IN')} {load.weight_unit}
                     </dd>
                   </div>
                   <div className="col-span-2">

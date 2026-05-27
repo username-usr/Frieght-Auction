@@ -17,12 +17,17 @@ type LoadDetail = {
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_kg: number
+  weight_value: number | string
+  weight_unit: 'kg' | 'liters'
+  quantity_value: number | string
   pickup_deadline: string
   reference_price_paise: number | null
   notes: string | null
   status: LoadStatus
   created_at: string
+  product: { name: string } | null
+  container: { name: string } | null
+  quantity_unit: { name: string } | null
 }
 
 type BidRow = {
@@ -47,8 +52,11 @@ export default async function TruckerLoadDetailPage({
       supabase
         .from('loads')
         .select(
-          `id, origin_city, destination_city, truck_type_required, weight_kg,
-           pickup_deadline, reference_price_paise, notes, status, created_at`
+          `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
+           quantity_value, pickup_deadline, reference_price_paise, notes, status, created_at,
+           product:product_names!product_name_id(name),
+           container:container_types!container_type_id(name),
+           quantity_unit:quantity_units!quantity_unit_id(name)`
         )
         .eq('id', id)
         .maybeSingle(),
@@ -69,6 +77,8 @@ export default async function TruckerLoadDetailPage({
   if (!loadRaw) notFound()
 
   const load = loadRaw as unknown as LoadDetail
+  const weightValue = Number(load.weight_value)
+  const quantityValue = Number(load.quantity_value)
   const bids = (bidsRaw ?? []) as BidRow[]
 
   // Anonymized L1: lowest amount among ACTIVE bids. We deliberately do not
@@ -115,27 +125,46 @@ export default async function TruckerLoadDetailPage({
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
           <div>
+            <dt className="text-slate-500">Product</dt>
+            <dd className="mt-0.5 text-slate-900">
+              {load.product?.name ?? '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Container</dt>
+            <dd className="mt-0.5 text-slate-900">
+              {load.container?.name ?? '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Quantity</dt>
+            <dd className="mt-0.5 tabular-nums text-slate-900">
+              {quantityValue.toLocaleString('en-IN')}{' '}
+              {load.quantity_unit?.name ?? ''}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Weight</dt>
+            <dd className="mt-0.5 tabular-nums text-slate-900">
+              {weightValue.toLocaleString('en-IN')} {load.weight_unit}
+            </dd>
+          </div>
+          <div>
             <dt className="text-slate-500">Truck</dt>
             <dd className="mt-0.5 capitalize text-slate-900">
               {load.truck_type_required}
             </dd>
           </div>
           <div>
-            <dt className="text-slate-500">Weight</dt>
-            <dd className="mt-0.5 tabular-nums text-slate-900">
-              {load.weight_kg.toLocaleString('en-IN')} kg
+            <dt className="text-slate-500">Posted</dt>
+            <dd className="mt-0.5 text-slate-900">
+              {formatRelativeTime(load.created_at)}
             </dd>
           </div>
           <div className="col-span-2">
             <dt className="text-slate-500">Pickup by</dt>
             <dd className="mt-0.5 text-slate-900">
               {formatAbsoluteIST(load.pickup_deadline)}
-            </dd>
-          </div>
-          <div className="col-span-2">
-            <dt className="text-slate-500">Posted</dt>
-            <dd className="mt-0.5 text-slate-900">
-              {formatRelativeTime(load.created_at)}
             </dd>
           </div>
         </dl>
