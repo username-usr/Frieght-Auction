@@ -67,11 +67,17 @@ export const getTrucker = cache(async (): Promise<CurrentTrucker | null> => {
 // pages do NOT call this — they call getTrucker() directly and handle null
 // themselves.
 export async function requireTrucker(): Promise<CurrentTrucker> {
-  console.log('[requireTrucker] called from page')
+  const callerStack = new Error().stack
+    ?.split('\n')
+    .slice(2, 6)
+    .map((l) => l.trim())
+    .join(' | ')
+  console.log('[requireTrucker] called from:', callerStack)
   const trucker = await getTrucker()
   if (!trucker) {
-    console.log('[requireTrucker] no trucker, redirecting to /t/login')
+    console.log('[requireTrucker] no trucker, redirecting to /t/login. caller:', callerStack)
     redirect('/t/login')
   }
+  console.log('[requireTrucker] success, trucker id:', trucker.id)
   return trucker
 }
