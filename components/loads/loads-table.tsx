@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { formatAbsoluteIST, formatRelativeTime } from '@/lib/format'
+import {
+  formatAbsoluteIST,
+  formatRelativeTime,
+  summarizeItemsByProduct,
+} from '@/lib/format'
 import { useRowFlash } from '@/lib/use-row-flash'
 import type { LoadStatus, TruckType } from '@/lib/types'
 
@@ -12,58 +16,52 @@ export type LoadListRow = {
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_value: number
-  weight_unit: 'kg' | 'liters'
-  quantity_value: number
-  quantity_unit_name: string
-  product_name: string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
   posted_by_name: string
   bid_count: number
+  items_summary: string
 }
 
-const SELECT = `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
-  quantity_value, pickup_deadline, status, created_at,
+// Embedded load_items in the realtime refetch is a single SQL join, so the
+// summary stays current when loads change (e.g. a new INSERT). Per Part D,
+// items don't get their own realtime channel — a page refresh shows item
+// edits made after the load was first posted.
+const SELECT = `id, origin_city, destination_city, truck_type_required,
+  pickup_deadline, status, created_at,
   posted_by_operator:operators!loads_posted_by_fkey(full_name),
-  product:product_names!product_name_id(name),
-  quantity_unit:quantity_units!quantity_unit_id(name),
-  bids(count)`
+  bids(count),
+  load_items(position, product:product_names!product_name_id(name))`
 
 type LoadsSelectRow = {
   id: string
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_value: number | string
-  weight_unit: 'kg' | 'liters'
-  quantity_value: number | string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
   posted_by_operator: { full_name: string } | null
-  product: { name: string } | null
-  quantity_unit: { name: string } | null
   bids: { count: number }[]
+  load_items: { position: number; product: { name: string } | null }[]
 }
 
 function normalize(row: LoadsSelectRow): LoadListRow {
+  const items = [...row.load_items].sort((a, b) => a.position - b.position)
   return {
     id: row.id,
     origin_city: row.origin_city,
     destination_city: row.destination_city,
     truck_type_required: row.truck_type_required,
-    weight_value: Number(row.weight_value),
-    weight_unit: row.weight_unit,
-    quantity_value: Number(row.quantity_value),
-    quantity_unit_name: row.quantity_unit?.name ?? '—',
-    product_name: row.product?.name ?? '—',
     pickup_deadline: row.pickup_deadline,
     status: row.status,
     created_at: row.created_at,
     posted_by_name: row.posted_by_operator?.full_name ?? '—',
     bid_count: row.bids[0]?.count ?? 0,
+    items_summary: summarizeItemsByProduct(
+      items.map((i) => i.product?.name ?? null)
+    ),
   }
 }
 
@@ -188,10 +186,8 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
           <tr>
             <th className="px-4 py-3 text-left">Posted</th>
             <th className="px-4 py-3 text-left">Origin → Destination</th>
-            <th className="px-4 py-3 text-left">Product</th>
+            <th className="px-4 py-3 text-left">Items</th>
             <th className="px-4 py-3 text-left">Truck</th>
-            <th className="px-4 py-3 text-right">Quantity</th>
-            <th className="px-4 py-3 text-right">Weight</th>
             <th className="px-4 py-3 text-left">Pickup</th>
             <th className="px-4 py-3 text-left">Status</th>
             <th className="px-4 py-3 text-right">Bids</th>
@@ -216,17 +212,10 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                   {load.origin_city} → {load.destination_city}
                 </td>
                 <td className="px-4 py-3 text-slate-700">
-                  {load.product_name}
+                  {load.items_summary}
                 </td>
                 <td className="px-4 py-3 capitalize text-slate-700">
                   {load.truck_type_required}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700">
-                  {load.quantity_value.toLocaleString('en-IN')}{' '}
-                  {load.quantity_unit_name}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700">
-                  {load.weight_value.toLocaleString('en-IN')} {load.weight_unit}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                   {formatAbsoluteIST(load.pickup_deadline)}

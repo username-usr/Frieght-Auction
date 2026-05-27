@@ -12,22 +12,28 @@ import { PlaceBidForm } from './place-bid-form'
 
 export const dynamic = 'force-dynamic'
 
+type LoadItem = {
+  id: string
+  position: number
+  quantity_value: number | string
+  weight_value: number | string
+  weight_unit: 'kg' | 'liters'
+  product: { name: string } | null
+  container: { name: string } | null
+  quantity_unit: { name: string } | null
+}
+
 type LoadDetail = {
   id: string
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_value: number | string
-  weight_unit: 'kg' | 'liters'
-  quantity_value: number | string
   pickup_deadline: string
   reference_price_paise: number | null
   notes: string | null
   status: LoadStatus
   created_at: string
-  product: { name: string } | null
-  container: { name: string } | null
-  quantity_unit: { name: string } | null
+  items: LoadItem[]
 }
 
 type BidRow = {
@@ -52,11 +58,14 @@ export default async function TruckerLoadDetailPage({
       supabase
         .from('loads')
         .select(
-          `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
-           quantity_value, pickup_deadline, reference_price_paise, notes, status, created_at,
-           product:product_names!product_name_id(name),
-           container:container_types!container_type_id(name),
-           quantity_unit:quantity_units!quantity_unit_id(name)`
+          `id, origin_city, destination_city, truck_type_required,
+           pickup_deadline, reference_price_paise, notes, status, created_at,
+           items:load_items(
+             id, position, quantity_value, weight_value, weight_unit,
+             product:product_names!product_name_id(name),
+             container:container_types!container_type_id(name),
+             quantity_unit:quantity_units!quantity_unit_id(name)
+           )`
         )
         .eq('id', id)
         .maybeSingle(),
@@ -77,8 +86,18 @@ export default async function TruckerLoadDetailPage({
   if (!loadRaw) notFound()
 
   const load = loadRaw as unknown as LoadDetail
-  const weightValue = Number(load.weight_value)
-  const quantityValue = Number(load.quantity_value)
+  const items = [...load.items].sort((a, b) => a.position - b.position)
+  const totals = items.reduce(
+    (acc, it) => {
+      const w = Number(it.weight_value)
+      if (Number.isFinite(w) && w > 0) {
+        if (it.weight_unit === 'kg') acc.kg += w
+        else acc.liters += w
+      }
+      return acc
+    },
+    { kg: 0, liters: 0 }
+  )
   const bids = (bidsRaw ?? []) as BidRow[]
 
   // Anonymized L1: lowest amount among ACTIVE bids. We deliberately do not
@@ -125,31 +144,6 @@ export default async function TruckerLoadDetailPage({
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
           <div>
-            <dt className="text-slate-500">Product</dt>
-            <dd className="mt-0.5 text-slate-900">
-              {load.product?.name ?? '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Container</dt>
-            <dd className="mt-0.5 text-slate-900">
-              {load.container?.name ?? '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Quantity</dt>
-            <dd className="mt-0.5 tabular-nums text-slate-900">
-              {quantityValue.toLocaleString('en-IN')}{' '}
-              {load.quantity_unit?.name ?? ''}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Weight</dt>
-            <dd className="mt-0.5 tabular-nums text-slate-900">
-              {weightValue.toLocaleString('en-IN')} {load.weight_unit}
-            </dd>
-          </div>
-          <div>
             <dt className="text-slate-500">Truck</dt>
             <dd className="mt-0.5 capitalize text-slate-900">
               {load.truck_type_required}
@@ -176,6 +170,65 @@ export default async function TruckerLoadDetailPage({
             <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
               {load.notes}
             </p>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Products ({items.length})
+        </h2>
+        {items.length === 0 ? (
+          <p className="mt-2 text-xs text-slate-600">No items on this load.</p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {items.map((item) => {
+              const qty = Number(item.quantity_value)
+              const w = Number(item.weight_value)
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-md border border-slate-200 bg-slate-50/40 p-3"
+                >
+                  <p className="text-sm font-medium text-slate-900">
+                    {item.product?.name ?? '—'}
+                  </p>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <div>
+                      <dt className="text-slate-500">Container</dt>
+                      <dd className="text-slate-900">
+                        {item.container?.name ?? '—'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate-500">Quantity</dt>
+                      <dd className="tabular-nums text-slate-900">
+                        {qty.toLocaleString('en-IN')}{' '}
+                        {item.quantity_unit?.name ?? ''}
+                      </dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-slate-500">Weight</dt>
+                      <dd className="tabular-nums text-slate-900">
+                        {w.toLocaleString('en-IN')} {item.weight_unit}
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {items.length > 0 ? (
+          <div className="mt-3 flex items-baseline justify-between border-t border-slate-100 pt-3">
+            <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Total weight
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-slate-900">
+              {totals.kg.toLocaleString('en-IN')} kg
+              {' • '}
+              {totals.liters.toLocaleString('en-IN')} liters
+            </span>
           </div>
         ) : null}
       </section>

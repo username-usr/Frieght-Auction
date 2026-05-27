@@ -4,6 +4,7 @@ import {
   formatAbsoluteIST,
   formatINR,
   formatRelativeTime,
+  summarizeItemsByProduct,
 } from '@/lib/format'
 import { requireTrucker } from '@/lib/trucker'
 import type { LoadStatus, TruckType } from '@/lib/types'
@@ -15,16 +16,32 @@ type LoadRow = {
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_value: number | string
-  weight_unit: 'kg' | 'liters'
-  quantity_value: number | string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
-  product: { name: string } | null
-  quantity_unit: { name: string } | null
   bids: { amount_paise: number; status: string }[]
 }
+
+type ItemRow = {
+  load_id: string
+  position: number
+  quantity_value: number | string
+  product: { name: string } | null
+  quantity_unit: { name: string } | null
+}
+
+// What to render under the route line: single item gets the full "50 Bags of
+// Rice" treatment with the product emphasized; multi-item uses the shared
+// summary helper.
+type ItemSummary =
+  | {
+      kind: 'single'
+      quantity: number
+      unit: string | null
+      product: string
+    }
+  | { kind: 'multi'; text: string }
+  | null
 
 export default async function TruckerLoadsPage() {
   const trucker = await requireTrucker()
@@ -38,10 +55,8 @@ export default async function TruckerLoadsPage() {
   const { data: loadsRaw, error } = await supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
-       quantity_value, pickup_deadline, status, created_at,
-       product:product_names!product_name_id(name),
-       quantity_unit:quantity_units!quantity_unit_id(name),
+      `id, origin_city, destination_city, truck_type_required,
+       pickup_deadline, status, created_at,
        bids:bids!bids_load_id_fkey(amount_paise, status)`
     )
     .eq('status', 'open')
@@ -57,22 +72,71 @@ export default async function TruckerLoadsPage() {
     )
   }
 
+  const rows = (loadsRaw ?? []) as unknown as LoadRow[]
+  const loadIds = rows.map((r) => r.id)
+
+  // Items moved to load_items in migration 0010 — separate query so the
+  // loads SELECT stays off the now-broken loads → product_names join.
+  const itemsByLoad = new Map<string, ItemRow[]>()
+  if (loadIds.length > 0) {
+    const { data: itemsRaw, error: itemsError } = await supabase
+      .from('load_items')
+      .select(
+        `load_id, position, quantity_value,
+         product:product_names!product_name_id(name),
+         quantity_unit:quantity_units!quantity_unit_id(name)`
+      )
+      .in('load_id', loadIds)
+
+    if (itemsError) {
+      return (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-semibold">Could not load items.</p>
+          <p className="mt-1 font-mono text-xs">{itemsError.message}</p>
+        </div>
+      )
+    }
+
+    for (const item of (itemsRaw ?? []) as unknown as ItemRow[]) {
+      const list = itemsByLoad.get(item.load_id)
+      if (list) list.push(item)
+      else itemsByLoad.set(item.load_id, [item])
+    }
+  }
+
   // Active bids are filtered & reduced server-side here because supabase-js
   // can't express both a filter on the embedded resource and a "min"
   // aggregate in one request.
-  const loads = (loadsRaw ?? []).map((l) => {
-    const row = l as unknown as LoadRow
+  const loads = rows.map((row) => {
+    const items = (itemsByLoad.get(row.id) ?? [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
     const activeAmounts = row.bids
       .filter((b) => b.status === 'active')
       .map((b) => b.amount_paise)
     const lowBid =
       activeAmounts.length > 0 ? Math.min(...activeAmounts) : null
+
+    let itemSummary: ItemSummary = null
+    if (items.length === 1 && items[0].product?.name) {
+      itemSummary = {
+        kind: 'single',
+        quantity: Number(items[0].quantity_value),
+        unit: items[0].quantity_unit?.name ?? null,
+        product: items[0].product.name,
+      }
+    } else if (items.length > 0) {
+      itemSummary = {
+        kind: 'multi',
+        text: summarizeItemsByProduct(
+          items.map((i) => i.product?.name ?? null)
+        ),
+      }
+    }
+
     return {
       ...row,
-      weightNum: Number(row.weight_value),
-      quantityNum: Number(row.quantity_value),
-      productName: row.product?.name ?? null,
-      quantityUnitName: row.quantity_unit?.name ?? null,
+      itemSummary,
       lowBid,
     }
   })
@@ -117,14 +181,20 @@ export default async function TruckerLoadsPage() {
                 <p className="text-base font-semibold text-slate-900">
                   {load.origin_city} → {load.destination_city}
                 </p>
-                {load.productName ? (
+                {load.itemSummary?.kind === 'single' ? (
                   <p className="mt-0.5 text-xs text-slate-600">
-                    {load.quantityNum.toLocaleString('en-IN')}
-                    {load.quantityUnitName ? ` ${load.quantityUnitName}` : ''}{' '}
+                    {load.itemSummary.quantity.toLocaleString('en-IN')}
+                    {load.itemSummary.unit
+                      ? ` ${load.itemSummary.unit}`
+                      : ''}{' '}
                     of{' '}
                     <span className="font-medium text-slate-900">
-                      {load.productName}
+                      {load.itemSummary.product}
                     </span>
+                  </p>
+                ) : load.itemSummary?.kind === 'multi' ? (
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {load.itemSummary.text}
                   </p>
                 ) : null}
                 <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
@@ -132,12 +202,6 @@ export default async function TruckerLoadsPage() {
                     <dt className="text-slate-500">Truck</dt>
                     <dd className="capitalize text-slate-900">
                       {load.truck_type_required}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Weight</dt>
-                    <dd className="tabular-nums text-slate-900">
-                      {load.weightNum.toLocaleString('en-IN')} {load.weight_unit}
                     </dd>
                   </div>
                   <div className="col-span-2">

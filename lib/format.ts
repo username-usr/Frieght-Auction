@@ -56,3 +56,20 @@ export function formatAbsoluteIST(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return `${IST_FMT.format(d)} IST`
 }
+
+// One-line summary of a load's products for list views:
+//   ["Rice"]                 → "Rice"
+//   ["Rice", "Wheat", "Oil"] → "Rice + 2 more"
+//   [null] / [null, null]    → "1 item" / "2 items"  (fallback when no name)
+//   []                       → "No items"
+// Pass product names in display order (e.g. sorted by load_items.position).
+export function summarizeItemsByProduct(
+  productNames: (string | null | undefined)[]
+): string {
+  const total = productNames.length
+  if (total === 0) return 'No items'
+  const firstNamed = productNames.find((n) => n != null && n !== '')
+  if (!firstNamed) return `${total} ${total === 1 ? 'item' : 'items'}`
+  if (total === 1) return firstNamed
+  return `${firstNamed} + ${total - 1} more`
+}

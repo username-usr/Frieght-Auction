@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { LoadsTable, type LoadListRow } from '@/components/loads/loads-table'
 import { PostedToast } from '@/components/loads/posted-toast'
 import { StatusFilter } from '@/components/loads/status-filter'
+import { summarizeItemsByProduct } from '@/lib/format'
 import type { LoadStatus, TruckType } from '@/lib/types'
 
 type FilterValue = LoadStatus | 'all'
@@ -16,28 +17,22 @@ const VALID_FILTERS: FilterValue[] = [
   'all',
 ]
 
-// Shape returned by the embedded-resource select below. Manually typed because
-// we're not running `supabase gen types` yet; small enough that hand-keeping
-// it in sync is fine.
-//
-// weight_value and quantity_value are NUMERIC in Postgres; supabase-js returns
-// them as string (precision-preserving) or number depending on the driver
-// version. Type them as the union and call Number() at the display boundary.
 type LoadsSelectRow = {
   id: string
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_value: number | string
-  weight_unit: 'kg' | 'liters'
-  quantity_value: number | string
   pickup_deadline: string
   status: LoadStatus
   created_at: string
   posted_by_operator: { full_name: string } | null
-  product: { name: string } | null
-  quantity_unit: { name: string } | null
   bids: { count: number }[]
+}
+
+type ItemRow = {
+  load_id: string
+  position: number
+  product: { name: string } | null
 }
 
 export default async function LoadsPage({
@@ -56,11 +51,9 @@ export default async function LoadsPage({
   let query = supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
-       quantity_value, pickup_deadline, status, created_at,
+      `id, origin_city, destination_city, truck_type_required,
+       pickup_deadline, status, created_at,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
-       product:product_names!product_name_id(name),
-       quantity_unit:quantity_units!quantity_unit_id(name),
        bids(count)`
     )
     .order('created_at', { ascending: false })
@@ -83,22 +76,56 @@ export default async function LoadsPage({
   }
 
   const rows = (data ?? []) as unknown as LoadsSelectRow[]
-  const loads: LoadListRow[] = rows.map((row) => ({
-    id: row.id,
-    origin_city: row.origin_city,
-    destination_city: row.destination_city,
-    truck_type_required: row.truck_type_required,
-    weight_value: Number(row.weight_value),
-    weight_unit: row.weight_unit,
-    quantity_value: Number(row.quantity_value),
-    quantity_unit_name: row.quantity_unit?.name ?? '—',
-    product_name: row.product?.name ?? '—',
-    pickup_deadline: row.pickup_deadline,
-    status: row.status,
-    created_at: row.created_at,
-    posted_by_name: row.posted_by_operator?.full_name ?? '—',
-    bid_count: row.bids[0]?.count ?? 0,
-  }))
+  const loadIds = rows.map((r) => r.id)
+
+  // Items live on load_items now (migration 0010), so we can't fetch them
+  // through the broken loads → product_names FK. Pull all items for the
+  // visible loads in one round-trip and group by load_id client-side.
+  const itemsByLoad = new Map<string, ItemRow[]>()
+  if (loadIds.length > 0) {
+    const { data: itemsRaw, error: itemsError } = await supabase
+      .from('load_items')
+      .select(
+        `load_id, position,
+         product:product_names!product_name_id(name)`
+      )
+      .in('load_id', loadIds)
+
+    if (itemsError) {
+      return (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-900">
+          <p className="font-semibold">Failed to load items.</p>
+          <p className="mt-2 font-mono">{itemsError.message}</p>
+        </div>
+      )
+    }
+
+    for (const item of (itemsRaw ?? []) as unknown as ItemRow[]) {
+      const list = itemsByLoad.get(item.load_id)
+      if (list) list.push(item)
+      else itemsByLoad.set(item.load_id, [item])
+    }
+  }
+
+  const loads: LoadListRow[] = rows.map((row) => {
+    const items = (itemsByLoad.get(row.id) ?? [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+    return {
+      id: row.id,
+      origin_city: row.origin_city,
+      destination_city: row.destination_city,
+      truck_type_required: row.truck_type_required,
+      pickup_deadline: row.pickup_deadline,
+      status: row.status,
+      created_at: row.created_at,
+      posted_by_name: row.posted_by_operator?.full_name ?? '—',
+      bid_count: row.bids[0]?.count ?? 0,
+      items_summary: summarizeItemsByProduct(
+        items.map((i) => i.product?.name ?? null)
+      ),
+    }
+  })
 
   return (
     <div className="space-y-6">

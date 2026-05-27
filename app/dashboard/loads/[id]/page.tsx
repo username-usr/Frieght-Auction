@@ -14,14 +14,22 @@ import {
 } from '@/lib/format'
 import type { LoadStatus, TruckType } from '@/lib/types'
 
+type LoadItemRow = {
+  id: string
+  position: number
+  quantity_value: number | string
+  weight_value: number | string
+  weight_unit: 'kg' | 'liters'
+  product: { name: string } | null
+  container: { name: string } | null
+  quantity_unit: { name: string } | null
+}
+
 type LoadDetailRow = {
   id: string
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_value: number | string
-  weight_unit: 'kg' | 'liters'
-  quantity_value: number | string
   pickup_deadline: string
   reference_price_paise: number | null
   notes: string | null
@@ -32,9 +40,7 @@ type LoadDetailRow = {
   cancellation_reason: string | null
   posted_by_operator: { full_name: string } | null
   cancelled_by_operator: { full_name: string } | null
-  product: { name: string } | null
-  container: { name: string } | null
-  quantity_unit: { name: string } | null
+  items: LoadItemRow[]
 }
 
 const LOAD_STATUS_BADGE: Record<LoadStatus, string> = {
@@ -61,14 +67,17 @@ export default async function LoadDetailPage({
   const { data: loadRaw, error: loadError } = await supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required, weight_value, weight_unit,
-       quantity_value, pickup_deadline, reference_price_paise, notes, status, created_at,
+      `id, origin_city, destination_city, truck_type_required,
+       pickup_deadline, reference_price_paise, notes, status, created_at,
        posted_by, cancelled_at, cancellation_reason,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
        cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name),
-       product:product_names!product_name_id(name),
-       container:container_types!container_type_id(name),
-       quantity_unit:quantity_units!quantity_unit_id(name)`
+       items:load_items(
+         id, position, quantity_value, weight_value, weight_unit,
+         product:product_names!product_name_id(name),
+         container:container_types!container_type_id(name),
+         quantity_unit:quantity_units!quantity_unit_id(name)
+       )`
     )
     .eq('id', id)
     .maybeSingle()
@@ -84,8 +93,18 @@ export default async function LoadDetailPage({
   if (!loadRaw) notFound()
 
   const load = loadRaw as unknown as LoadDetailRow
-  const weightValue = Number(load.weight_value)
-  const quantityValue = Number(load.quantity_value)
+  const items = [...load.items].sort((a, b) => a.position - b.position)
+  const totals = items.reduce(
+    (acc, it) => {
+      const w = Number(it.weight_value)
+      if (Number.isFinite(w) && w > 0) {
+        if (it.weight_unit === 'kg') acc.kg += w
+        else acc.liters += w
+      }
+      return acc
+    },
+    { kg: 0, liters: 0 }
+  )
 
   // ALL bids for this load — no status filter (UX decision in step 4: show
   // lost/withdrawn too so the operator has the full audit trail). The
@@ -168,46 +187,13 @@ export default async function LoadDetailPage({
           </Link>
         </div>
 
-        <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Product
-            </dt>
-            <dd className="mt-1 text-sm text-slate-900">
-              {load.product?.name ?? '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Quantity
-            </dt>
-            <dd className="mt-1 text-sm tabular-nums text-slate-900">
-              {quantityValue.toLocaleString('en-IN')}{' '}
-              {load.quantity_unit?.name ?? ''}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Container
-            </dt>
-            <dd className="mt-1 text-sm text-slate-900">
-              {load.container?.name ?? '—'}
-            </dd>
-          </div>
+        <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
           <div>
             <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
               Truck type
             </dt>
             <dd className="mt-1 text-sm capitalize text-slate-900">
               {load.truck_type_required}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Weight
-            </dt>
-            <dd className="mt-1 text-sm tabular-nums text-slate-900">
-              {weightValue.toLocaleString('en-IN')} {load.weight_unit}
             </dd>
           </div>
           <div>
@@ -256,6 +242,66 @@ export default async function LoadDetailPage({
             </p>
           </div>
         ) : null}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-900">
+          Products ({items.length})
+        </h3>
+        {items.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">No items on this load.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
+                <tr>
+                  <th className="px-4 py-2 text-left">Product</th>
+                  <th className="px-4 py-2 text-left">Container</th>
+                  <th className="px-4 py-2 text-right">Quantity</th>
+                  <th className="px-4 py-2 text-right">Weight</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map((item) => {
+                  const qty = Number(item.quantity_value)
+                  const w = Number(item.weight_value)
+                  return (
+                    <tr key={item.id}>
+                      <td className="px-4 py-2 font-medium text-slate-900">
+                        {item.product?.name ?? '—'}
+                      </td>
+                      <td className="px-4 py-2 text-slate-700">
+                        {item.container?.name ?? '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-slate-700">
+                        {qty.toLocaleString('en-IN')}{' '}
+                        {item.quantity_unit?.name ?? ''}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-slate-700">
+                        {w.toLocaleString('en-IN')} {item.weight_unit}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot className="bg-slate-50 text-xs">
+                <tr>
+                  <td
+                    className="px-4 py-2 text-right font-medium uppercase tracking-wider text-slate-600"
+                    colSpan={3}
+                  >
+                    Total weight
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums font-semibold text-slate-900">
+                    {totals.kg.toLocaleString('en-IN')} kg
+                    {' • '}
+                    {totals.liters.toLocaleString('en-IN')} liters
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </section>
 
       {bidsError ? (
