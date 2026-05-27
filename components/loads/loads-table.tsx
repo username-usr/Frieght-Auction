@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatAbsoluteIST, formatRelativeTime } from '@/lib/format'
 import { useRowFlash } from '@/lib/use-row-flash'
@@ -79,6 +80,7 @@ type Props = {
 }
 
 export function LoadsTable({ initialLoads, statusFilter }: Props) {
+  const router = useRouter()
   const [loads, setLoads] = useState<LoadListRow[]>(initialLoads)
   const { flashIds, flashRow } = useRowFlash(1000)
 
@@ -202,6 +204,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
             return (
               <tr
                 key={load.id}
+                onClick={() => router.push(`/dashboard/loads/${load.id}`)}
                 className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${
                   flashing ? 'bg-blue-100' : ''
                 }`}
