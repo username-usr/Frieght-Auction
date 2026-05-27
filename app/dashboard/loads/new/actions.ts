@@ -2,9 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { TruckType } from '@/lib/types'
-
-export type WeightUnit = 'kg' | 'liters'
+import type { TruckType, WeightUnit } from '@/lib/types'
 
 export type CreateLoadInput = {
   origin_city: string

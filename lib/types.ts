@@ -1,4 +1,4 @@
-// Mirror of the enums and tables defined in supabase/migrations/0001_initial_schema.sql.
+// Mirror of the enums and tables defined in supabase/migrations/.
 // Keep this in sync when the schema changes. Running `pnpm supabase gen types typescript`
 // is the more thorough alternative once the project grows; for now the surface is small
 // enough to maintain by hand.
@@ -23,6 +23,19 @@ export type TruckerStatus = 'active' | 'inactive' | 'blocked'
 export type MessageDirection = 'inbound' | 'outbound'
 export type MessageStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
 
+// Closed set enforced by a CHECK constraint on loads.weight_unit (0008).
+// Not a Postgres enum because the values are unlikely to grow and a CHECK is
+// easier to evolve.
+export type WeightUnit = 'kg' | 'liters'
+
+// Shape of a single row from any of the admin-managed lookup tables
+// (product_names, container_types, quantity_units). Used by dropdowns
+// across the new-load form and the /dashboard/admin UI.
+export type LookupOption = {
+  id: string
+  name: string
+}
+
 export type Operator = {
   id: string
   email: string
@@ -44,12 +57,22 @@ export type Trucker = {
   updated_at: string
 }
 
+// weight_value and quantity_value are NUMERIC in Postgres. supabase-js may
+// return numeric columns as strings to preserve precision; consumers that
+// read these from the API should call Number() at the display boundary.
+// We type them as `number` here to keep the canonical type clean — pages
+// that read raw API rows declare their own `number | string` row shapes.
 export type Load = {
   id: string
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  weight_kg: number
+  product_name_id: string
+  container_type_id: string
+  quantity_unit_id: string
+  quantity_value: number
+  weight_value: number
+  weight_unit: WeightUnit
   pickup_deadline: string
   reference_price_paise: number | null
   notes: string | null

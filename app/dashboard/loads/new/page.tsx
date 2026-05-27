@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { NewLoadForm, type LookupOption } from './form'
+import type { LookupOption } from '@/lib/types'
+import { NewLoadForm } from './form'
 
 export default async function NewLoadPage() {
   const supabase = await createClient()

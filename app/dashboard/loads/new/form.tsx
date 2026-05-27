@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import type { TruckType } from '@/lib/types'
-import { createLoad, type WeightUnit } from './actions'
+import type { LookupOption, TruckType, WeightUnit } from '@/lib/types'
+import { createLoad } from './actions'
 
 // `redirect()` inside a server action surfaces on the client as a thrown
 // object whose `digest` starts with "NEXT_REDIRECT". We let Next.js handle
@@ -32,11 +32,6 @@ const WEIGHT_UNITS: { value: WeightUnit; label: string }[] = [
   { value: 'kg', label: 'kg' },
   { value: 'liters', label: 'liters' },
 ]
-
-export type LookupOption = {
-  id: string
-  name: string
-}
 
 // Shared input/select/textarea styling that matches the login page so the app
 // feels consistent. Once we introduce a third place that needs this we'll
