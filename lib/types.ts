@@ -57,22 +57,11 @@ export type Trucker = {
   updated_at: string
 }
 
-// weight_value and quantity_value are NUMERIC in Postgres. supabase-js may
-// return numeric columns as strings to preserve precision; consumers that
-// read these from the API should call Number() at the display boundary.
-// We type them as `number` here to keep the canonical type clean — pages
-// that read raw API rows declare their own `number | string` row shapes.
 export type Load = {
   id: string
   origin_city: string
   destination_city: string
   truck_type_required: TruckType
-  product_name_id: string
-  container_type_id: string
-  quantity_unit_id: string
-  quantity_value: number
-  weight_value: number
-  weight_unit: WeightUnit
   pickup_deadline: string
   reference_price_paise: number | null
   notes: string | null
@@ -80,6 +69,27 @@ export type Load = {
   posted_by: string
   created_at: string
   updated_at: string
+}
+
+// One product on a load. Each load has 1+ items (migration 0010).
+// `position` gives a stable display order within a load.
+//
+// weight_value and quantity_value are NUMERIC in Postgres. supabase-js may
+// return numeric columns as strings to preserve precision; consumers that
+// read these from the API should call Number() at the display boundary.
+// We type them as `number` here to keep the canonical type clean — pages
+// that read raw API rows declare their own `number | string` row shapes.
+export type LoadItem = {
+  id: string
+  load_id: string
+  position: number
+  product_name_id: string
+  container_type_id: string
+  quantity_value: number
+  quantity_unit_id: string
+  weight_value: number
+  weight_unit: WeightUnit
+  created_at: string
 }
 
 export type Bid = {
