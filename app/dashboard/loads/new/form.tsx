@@ -41,17 +41,49 @@ const FIELD =
 const LABEL = 'block text-sm font-medium text-slate-700'
 const ERROR = 'mt-1 text-xs text-red-700'
 
-type Errors = Partial<{
+type HeaderErrors = Partial<{
   origin_city: string
   destination_city: string
-  product_name_id: string
-  quantity_value: string
-  quantity_unit_id: string
-  container_type_id: string
-  weight_value: string
   pickup_deadline: string
   reference_price: string
+  items: string
 }>
+
+type ItemErrors = Partial<{
+  product_name_id: string
+  container_type_id: string
+  quantity_value: string
+  quantity_unit_id: string
+  weight_value: string
+}>
+
+// rowKey is a stable React key used for list reconciliation when items are
+// added or removed. It's never sent to the server — the server derives
+// position from array index.
+type ItemDraft = {
+  rowKey: string
+  product_name_id: string
+  container_type_id: string
+  quantity_value: string
+  quantity_unit_id: string
+  weight_value: string
+  weight_unit: WeightUnit
+}
+
+function blankItem(): ItemDraft {
+  return {
+    rowKey:
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
+    product_name_id: '',
+    container_type_id: '',
+    quantity_value: '',
+    quantity_unit_id: '',
+    weight_value: '',
+    weight_unit: 'kg',
+  }
+}
 
 type Props = {
   productOptions: LookupOption[]
@@ -67,65 +99,86 @@ export function NewLoadForm({
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [truckType, setTruckType] = useState<TruckType>('open')
-  const [productId, setProductId] = useState('')
-  const [containerId, setContainerId] = useState('')
-  const [quantityValue, setQuantityValue] = useState('')
-  const [quantityUnitId, setQuantityUnitId] = useState('')
-  const [weightValue, setWeightValue] = useState('')
-  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg')
   const [pickupDeadline, setPickupDeadline] = useState('')
   const [referencePrice, setReferencePrice] = useState('')
   const [notes, setNotes] = useState('')
-  const [errors, setErrors] = useState<Errors>({})
+  const [items, setItems] = useState<ItemDraft[]>(() => [blankItem()])
+  const [errors, setErrors] = useState<HeaderErrors>({})
+  const [itemErrors, setItemErrors] = useState<ItemErrors[]>([{}])
   const [isPending, startTransition] = useTransition()
 
-  function validate(): Errors {
-    const e: Errors = {}
+  function updateItem(idx: number, patch: Partial<ItemDraft>) {
+    setItems((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, ...patch } : it))
+    )
+  }
+
+  function addItem() {
+    setItems((prev) => [...prev, blankItem()])
+    setItemErrors((prev) => [...prev, {}])
+  }
+
+  function removeItem(idx: number) {
+    setItems((prev) => prev.filter((_, i) => i !== idx))
+    setItemErrors((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  function validate(): { header: HeaderErrors; items: ItemErrors[] } {
+    const h: HeaderErrors = {}
     const o = origin.trim()
     const d = destination.trim()
 
-    if (!o) e.origin_city = 'Required'
-    if (!d) e.destination_city = 'Required'
+    if (!o) h.origin_city = 'Required'
+    if (!d) h.destination_city = 'Required'
     if (o && d && o.toLowerCase() === d.toLowerCase()) {
-      e.destination_city = 'Must differ from origin'
+      h.destination_city = 'Must differ from origin'
     }
 
-    if (!productId) e.product_name_id = 'Required'
-    if (!containerId) e.container_type_id = 'Required'
-    if (!quantityUnitId) e.quantity_unit_id = 'Required'
-
-    const qtyNum = Number(quantityValue)
-    if (!quantityValue.trim()) e.quantity_value = 'Required'
-    else if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
-      e.quantity_value = 'Must be greater than 0'
-    }
-
-    const weightNum = Number(weightValue)
-    if (!weightValue.trim()) e.weight_value = 'Required'
-    else if (!Number.isFinite(weightNum) || weightNum <= 0) {
-      e.weight_value = 'Must be greater than 0'
-    }
-
-    if (!pickupDeadline) e.pickup_deadline = 'Required'
+    if (!pickupDeadline) h.pickup_deadline = 'Required'
     else if (new Date(pickupDeadline).getTime() <= Date.now()) {
-      e.pickup_deadline = 'Must be in the future'
+      h.pickup_deadline = 'Must be in the future'
     }
 
     if (referencePrice.trim()) {
       const refNum = Number(referencePrice)
       if (!Number.isFinite(refNum) || refNum <= 0) {
-        e.reference_price = 'Must be greater than 0'
+        h.reference_price = 'Must be greater than 0'
       }
     }
 
-    return e
+    if (items.length === 0) h.items = 'Add at least one product'
+
+    const itemErrs: ItemErrors[] = items.map((it) => {
+      const e: ItemErrors = {}
+      if (!it.product_name_id) e.product_name_id = 'Required'
+      if (!it.container_type_id) e.container_type_id = 'Required'
+      if (!it.quantity_unit_id) e.quantity_unit_id = 'Required'
+
+      const qtyNum = Number(it.quantity_value)
+      if (!it.quantity_value.trim()) e.quantity_value = 'Required'
+      else if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+        e.quantity_value = 'Must be greater than 0'
+      }
+
+      const wNum = Number(it.weight_value)
+      if (!it.weight_value.trim()) e.weight_value = 'Required'
+      else if (!Number.isFinite(wNum) || wNum <= 0) {
+        e.weight_value = 'Must be greater than 0'
+      }
+      return e
+    })
+
+    return { header: h, items: itemErrs }
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const validation = validate()
-    setErrors(validation)
-    if (Object.keys(validation).length > 0) return
+    const v = validate()
+    setErrors(v.header)
+    setItemErrors(v.items)
+    const headerInvalid = Object.keys(v.header).length > 0
+    const itemsInvalid = v.items.some((e) => Object.keys(e).length > 0)
+    if (headerInvalid || itemsInvalid) return
 
     startTransition(async () => {
       try {
@@ -133,12 +186,6 @@ export function NewLoadForm({
           origin_city: origin.trim(),
           destination_city: destination.trim(),
           truck_type_required: truckType,
-          product_name_id: productId,
-          quantity_value: Number(quantityValue),
-          quantity_unit_id: quantityUnitId,
-          container_type_id: containerId,
-          weight_value: Number(weightValue),
-          weight_unit: weightUnit,
           // datetime-local gives a string in browser local time; converting
           // to ISO here normalizes to UTC for storage.
           pickup_deadline: new Date(pickupDeadline).toISOString(),
@@ -146,6 +193,14 @@ export function NewLoadForm({
             ? Math.round(Number(referencePrice) * 100)
             : null,
           notes: notes.trim() || null,
+          items: items.map((it) => ({
+            product_name_id: it.product_name_id,
+            container_type_id: it.container_type_id,
+            quantity_value: Number(it.quantity_value),
+            quantity_unit_id: it.quantity_unit_id,
+            weight_value: Number(it.weight_value),
+            weight_unit: it.weight_unit,
+          })),
         })
         // createLoad redirects on success — control never gets here.
       } catch (err) {
@@ -156,6 +211,20 @@ export function NewLoadForm({
       }
     })
   }
+
+  // Totals are summed per-unit since kg and liters don't convert into a
+  // single comparable number.
+  const totals = items.reduce(
+    (acc, it) => {
+      const w = Number(it.weight_value)
+      if (Number.isFinite(w) && w > 0) {
+        if (it.weight_unit === 'kg') acc.kg += w
+        else acc.liters += w
+      }
+      return acc
+    },
+    { kg: 0, liters: 0 }
+  )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
@@ -239,149 +308,208 @@ export function NewLoadForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div>
-          <label htmlFor="product_name_id" className={LABEL}>
-            Product
-          </label>
-          <select
-            id="product_name_id"
-            name="product_name_id"
-            disabled={isPending}
-            value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-            className={FIELD}
-          >
-            <option value="" disabled>
-              Select a product…
-            </option>
-            {productOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          {errors.product_name_id ? (
-            <p className={ERROR}>{errors.product_name_id}</p>
-          ) : null}
+      <div className="space-y-4 border-t border-slate-200 pt-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Products</h2>
+          <div className="text-xs text-slate-600">
+            Total:{' '}
+            <span className="font-medium text-slate-900">
+              {totals.kg.toLocaleString('en-IN')} kg
+            </span>
+            {' • '}
+            <span className="font-medium text-slate-900">
+              {totals.liters.toLocaleString('en-IN')} liters
+            </span>
+          </div>
         </div>
-        <div>
-          <label htmlFor="container_type_id" className={LABEL}>
-            Container type
-          </label>
-          <select
-            id="container_type_id"
-            name="container_type_id"
-            disabled={isPending}
-            value={containerId}
-            onChange={(e) => setContainerId(e.target.value)}
-            className={FIELD}
-          >
-            <option value="" disabled>
-              Select a container type…
-            </option>
-            {containerOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          {errors.container_type_id ? (
-            <p className={ERROR}>{errors.container_type_id}</p>
-          ) : null}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div>
-          <label htmlFor="quantity_value" className={LABEL}>
-            Quantity
-          </label>
-          <input
-            id="quantity_value"
-            name="quantity_value"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
-            disabled={isPending}
-            value={quantityValue}
-            onChange={(e) => setQuantityValue(e.target.value)}
-            placeholder="50"
-            className={FIELD}
-          />
-          {errors.quantity_value ? (
-            <p className={ERROR}>{errors.quantity_value}</p>
-          ) : null}
-        </div>
-        <div>
-          <label htmlFor="quantity_unit_id" className={LABEL}>
-            Quantity unit
-          </label>
-          <select
-            id="quantity_unit_id"
-            name="quantity_unit_id"
-            disabled={isPending}
-            value={quantityUnitId}
-            onChange={(e) => setQuantityUnitId(e.target.value)}
-            className={FIELD}
-          >
-            <option value="" disabled>
-              Select a unit…
-            </option>
-            {quantityUnitOptions.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-          {errors.quantity_unit_id ? (
-            <p className={ERROR}>{errors.quantity_unit_id}</p>
-          ) : null}
-        </div>
-      </div>
+        {items.map((item, idx) => {
+          const ie = itemErrors[idx] ?? {}
+          const idBase = `item-${item.rowKey}`
+          return (
+            <div
+              key={item.rowKey}
+              className="space-y-4 rounded-md border border-slate-200 bg-slate-50/40 p-4"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
+                  Item {idx + 1}
+                </span>
+                <button
+                  type="button"
+                  disabled={isPending || items.length === 1}
+                  onClick={() => removeItem(idx)}
+                  className="text-xs font-medium text-red-700 hover:text-red-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  Remove
+                </button>
+              </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div>
-          <label htmlFor="weight_value" className={LABEL}>
-            Weight
-          </label>
-          <input
-            id="weight_value"
-            name="weight_value"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
-            disabled={isPending}
-            value={weightValue}
-            onChange={(e) => setWeightValue(e.target.value)}
-            placeholder="10000"
-            className={FIELD}
-          />
-          {errors.weight_value ? (
-            <p className={ERROR}>{errors.weight_value}</p>
-          ) : null}
-        </div>
-        <div>
-          <label htmlFor="weight_unit" className={LABEL}>
-            Weight unit
-          </label>
-          <select
-            id="weight_unit"
-            name="weight_unit"
-            disabled={isPending}
-            value={weightUnit}
-            onChange={(e) => setWeightUnit(e.target.value as WeightUnit)}
-            className={FIELD}
-          >
-            {WEIGHT_UNITS.map((u) => (
-              <option key={u.value} value={u.value}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-        </div>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div>
+                  <label htmlFor={`${idBase}-product`} className={LABEL}>
+                    Product
+                  </label>
+                  <select
+                    id={`${idBase}-product`}
+                    disabled={isPending}
+                    value={item.product_name_id}
+                    onChange={(e) =>
+                      updateItem(idx, { product_name_id: e.target.value })
+                    }
+                    className={FIELD}
+                  >
+                    <option value="" disabled>
+                      Select a product…
+                    </option>
+                    {productOptions.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  {ie.product_name_id ? (
+                    <p className={ERROR}>{ie.product_name_id}</p>
+                  ) : null}
+                </div>
+                <div>
+                  <label htmlFor={`${idBase}-container`} className={LABEL}>
+                    Container type
+                  </label>
+                  <select
+                    id={`${idBase}-container`}
+                    disabled={isPending}
+                    value={item.container_type_id}
+                    onChange={(e) =>
+                      updateItem(idx, { container_type_id: e.target.value })
+                    }
+                    className={FIELD}
+                  >
+                    <option value="" disabled>
+                      Select a container type…
+                    </option>
+                    {containerOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {ie.container_type_id ? (
+                    <p className={ERROR}>{ie.container_type_id}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div>
+                  <label htmlFor={`${idBase}-quantity`} className={LABEL}>
+                    Quantity
+                  </label>
+                  <input
+                    id={`${idBase}-quantity`}
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="any"
+                    disabled={isPending}
+                    value={item.quantity_value}
+                    onChange={(e) =>
+                      updateItem(idx, { quantity_value: e.target.value })
+                    }
+                    placeholder="50"
+                    className={FIELD}
+                  />
+                  {ie.quantity_value ? (
+                    <p className={ERROR}>{ie.quantity_value}</p>
+                  ) : null}
+                </div>
+                <div>
+                  <label htmlFor={`${idBase}-quantity-unit`} className={LABEL}>
+                    Quantity unit
+                  </label>
+                  <select
+                    id={`${idBase}-quantity-unit`}
+                    disabled={isPending}
+                    value={item.quantity_unit_id}
+                    onChange={(e) =>
+                      updateItem(idx, { quantity_unit_id: e.target.value })
+                    }
+                    className={FIELD}
+                  >
+                    <option value="" disabled>
+                      Select a unit…
+                    </option>
+                    {quantityUnitOptions.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                  {ie.quantity_unit_id ? (
+                    <p className={ERROR}>{ie.quantity_unit_id}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div>
+                  <label htmlFor={`${idBase}-weight`} className={LABEL}>
+                    Weight
+                  </label>
+                  <input
+                    id={`${idBase}-weight`}
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="any"
+                    disabled={isPending}
+                    value={item.weight_value}
+                    onChange={(e) =>
+                      updateItem(idx, { weight_value: e.target.value })
+                    }
+                    placeholder="10000"
+                    className={FIELD}
+                  />
+                  {ie.weight_value ? (
+                    <p className={ERROR}>{ie.weight_value}</p>
+                  ) : null}
+                </div>
+                <div>
+                  <label htmlFor={`${idBase}-weight-unit`} className={LABEL}>
+                    Weight unit
+                  </label>
+                  <select
+                    id={`${idBase}-weight-unit`}
+                    disabled={isPending}
+                    value={item.weight_unit}
+                    onChange={(e) =>
+                      updateItem(idx, {
+                        weight_unit: e.target.value as WeightUnit,
+                      })
+                    }
+                    className={FIELD}
+                  >
+                    {WEIGHT_UNITS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={addItem}
+          className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          + Add product
+        </button>
+        {errors.items ? <p className={ERROR}>{errors.items}</p> : null}
       </div>
 
       <div>
