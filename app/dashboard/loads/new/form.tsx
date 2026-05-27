@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import type { TruckType } from '@/lib/types'
-import { createLoad } from './actions'
+import { createLoad, type WeightUnit } from './actions'
 
 // `redirect()` inside a server action surfaces on the client as a thrown
 // object whose `digest` starts with "NEXT_REDIRECT". We let Next.js handle
@@ -28,6 +28,16 @@ const TRUCK_TYPES: { value: TruckType; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
+const WEIGHT_UNITS: { value: WeightUnit; label: string }[] = [
+  { value: 'kg', label: 'kg' },
+  { value: 'liters', label: 'liters' },
+]
+
+export type LookupOption = {
+  id: string
+  name: string
+}
+
 // Shared input/select/textarea styling that matches the login page so the app
 // feels consistent. Once we introduce a third place that needs this we'll
 // promote it to a real component.
@@ -39,16 +49,35 @@ const ERROR = 'mt-1 text-xs text-red-700'
 type Errors = Partial<{
   origin_city: string
   destination_city: string
-  weight_kg: string
+  product_name_id: string
+  quantity_value: string
+  quantity_unit_id: string
+  container_type_id: string
+  weight_value: string
   pickup_deadline: string
   reference_price: string
 }>
 
-export function NewLoadForm() {
+type Props = {
+  productOptions: LookupOption[]
+  containerOptions: LookupOption[]
+  quantityUnitOptions: LookupOption[]
+}
+
+export function NewLoadForm({
+  productOptions,
+  containerOptions,
+  quantityUnitOptions,
+}: Props) {
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [truckType, setTruckType] = useState<TruckType>('open')
-  const [weight, setWeight] = useState('')
+  const [productId, setProductId] = useState('')
+  const [containerId, setContainerId] = useState('')
+  const [quantityValue, setQuantityValue] = useState('')
+  const [quantityUnitId, setQuantityUnitId] = useState('')
+  const [weightValue, setWeightValue] = useState('')
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg')
   const [pickupDeadline, setPickupDeadline] = useState('')
   const [referencePrice, setReferencePrice] = useState('')
   const [notes, setNotes] = useState('')
@@ -66,10 +95,20 @@ export function NewLoadForm() {
       e.destination_city = 'Must differ from origin'
     }
 
-    const weightNum = Number(weight)
-    if (!weight.trim()) e.weight_kg = 'Required'
+    if (!productId) e.product_name_id = 'Required'
+    if (!containerId) e.container_type_id = 'Required'
+    if (!quantityUnitId) e.quantity_unit_id = 'Required'
+
+    const qtyNum = Number(quantityValue)
+    if (!quantityValue.trim()) e.quantity_value = 'Required'
+    else if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      e.quantity_value = 'Must be greater than 0'
+    }
+
+    const weightNum = Number(weightValue)
+    if (!weightValue.trim()) e.weight_value = 'Required'
     else if (!Number.isFinite(weightNum) || weightNum <= 0) {
-      e.weight_kg = 'Must be greater than 0'
+      e.weight_value = 'Must be greater than 0'
     }
 
     if (!pickupDeadline) e.pickup_deadline = 'Required'
@@ -99,7 +138,12 @@ export function NewLoadForm() {
           origin_city: origin.trim(),
           destination_city: destination.trim(),
           truck_type_required: truckType,
-          weight_kg: parseInt(weight, 10),
+          product_name_id: productId,
+          quantity_value: Number(quantityValue),
+          quantity_unit_id: quantityUnitId,
+          container_type_id: containerId,
+          weight_value: Number(weightValue),
+          weight_unit: weightUnit,
           // datetime-local gives a string in browser local time; converting
           // to ISO here normalizes to UTC for storage.
           pickup_deadline: new Date(pickupDeadline).toISOString(),
@@ -161,7 +205,7 @@ export function NewLoadForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
           <label htmlFor="truck_type_required" className={LABEL}>
             Truck type
@@ -182,27 +226,6 @@ export function NewLoadForm() {
           </select>
         </div>
         <div>
-          <label htmlFor="weight_kg" className={LABEL}>
-            Weight (kg)
-          </label>
-          <input
-            id="weight_kg"
-            name="weight_kg"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            step={1}
-            disabled={isPending}
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="10000"
-            className={FIELD}
-          />
-          {errors.weight_kg ? (
-            <p className={ERROR}>{errors.weight_kg}</p>
-          ) : null}
-        </div>
-        <div>
           <label htmlFor="pickup_deadline" className={LABEL}>
             Pickup deadline
           </label>
@@ -218,6 +241,151 @@ export function NewLoadForm() {
           {errors.pickup_deadline ? (
             <p className={ERROR}>{errors.pickup_deadline}</p>
           ) : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div>
+          <label htmlFor="product_name_id" className={LABEL}>
+            Product
+          </label>
+          <select
+            id="product_name_id"
+            name="product_name_id"
+            disabled={isPending}
+            value={productId}
+            onChange={(e) => setProductId(e.target.value)}
+            className={FIELD}
+          >
+            <option value="" disabled>
+              Select a product…
+            </option>
+            {productOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          {errors.product_name_id ? (
+            <p className={ERROR}>{errors.product_name_id}</p>
+          ) : null}
+        </div>
+        <div>
+          <label htmlFor="container_type_id" className={LABEL}>
+            Container type
+          </label>
+          <select
+            id="container_type_id"
+            name="container_type_id"
+            disabled={isPending}
+            value={containerId}
+            onChange={(e) => setContainerId(e.target.value)}
+            className={FIELD}
+          >
+            <option value="" disabled>
+              Select a container type…
+            </option>
+            {containerOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {errors.container_type_id ? (
+            <p className={ERROR}>{errors.container_type_id}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div>
+          <label htmlFor="quantity_value" className={LABEL}>
+            Quantity
+          </label>
+          <input
+            id="quantity_value"
+            name="quantity_value"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            disabled={isPending}
+            value={quantityValue}
+            onChange={(e) => setQuantityValue(e.target.value)}
+            placeholder="50"
+            className={FIELD}
+          />
+          {errors.quantity_value ? (
+            <p className={ERROR}>{errors.quantity_value}</p>
+          ) : null}
+        </div>
+        <div>
+          <label htmlFor="quantity_unit_id" className={LABEL}>
+            Quantity unit
+          </label>
+          <select
+            id="quantity_unit_id"
+            name="quantity_unit_id"
+            disabled={isPending}
+            value={quantityUnitId}
+            onChange={(e) => setQuantityUnitId(e.target.value)}
+            className={FIELD}
+          >
+            <option value="" disabled>
+              Select a unit…
+            </option>
+            {quantityUnitOptions.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+          {errors.quantity_unit_id ? (
+            <p className={ERROR}>{errors.quantity_unit_id}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div>
+          <label htmlFor="weight_value" className={LABEL}>
+            Weight
+          </label>
+          <input
+            id="weight_value"
+            name="weight_value"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            disabled={isPending}
+            value={weightValue}
+            onChange={(e) => setWeightValue(e.target.value)}
+            placeholder="10000"
+            className={FIELD}
+          />
+          {errors.weight_value ? (
+            <p className={ERROR}>{errors.weight_value}</p>
+          ) : null}
+        </div>
+        <div>
+          <label htmlFor="weight_unit" className={LABEL}>
+            Weight unit
+          </label>
+          <select
+            id="weight_unit"
+            name="weight_unit"
+            disabled={isPending}
+            value={weightUnit}
+            onChange={(e) => setWeightUnit(e.target.value as WeightUnit)}
+            className={FIELD}
+          >
+            {WEIGHT_UNITS.map((u) => (
+              <option key={u.value} value={u.value}>
+                {u.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
