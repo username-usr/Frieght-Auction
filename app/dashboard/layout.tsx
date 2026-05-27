@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Toaster } from 'sonner'
 import { getOperatorContext } from '@/lib/auth'
@@ -37,6 +38,20 @@ export default async function DashboardLayout({
               Operator Dashboard
             </p>
           </div>
+          <nav className="flex items-center gap-1">
+            <Link
+              href="/dashboard"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Loads
+            </Link>
+            <Link
+              href="/dashboard/admin"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Admin
+            </Link>
+          </nav>
           <div className="flex items-center gap-4">
             <div className="text-right text-sm leading-tight">
               <p className="font-medium text-slate-900">{operator.full_name}</p>
