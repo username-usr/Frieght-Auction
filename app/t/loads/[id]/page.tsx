@@ -122,6 +122,14 @@ export default async function TruckerLoadDetailPage({
 
   const canBid = load.status === 'open'
 
+  // Outcome banner for awarded loads. We only render it when this trucker
+  // has a non-active bid on record — a trucker who never bid on an awarded
+  // load shouldn't be landing here, so showing nothing in that case is fine.
+  const wonBanner =
+    load.status === 'awarded' && ownNonActiveBid?.status === 'won'
+  const lostBanner =
+    load.status === 'awarded' && ownNonActiveBid?.status === 'lost'
+
   return (
     <div className="space-y-5">
       <nav className="text-xs">
@@ -132,6 +140,17 @@ export default async function TruckerLoadDetailPage({
           ← Back to loads
         </Link>
       </nav>
+
+      {wonBanner ? (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-900">
+          🎉 You won this load — Pickup by{' '}
+          {formatAbsoluteIST(load.pickup_deadline)}
+        </div>
+      ) : lostBanner ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm text-slate-700">
+          Bidding closed for this load.
+        </div>
+      ) : null}
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-start justify-between gap-2">
@@ -272,7 +291,7 @@ export default async function TruckerLoadDetailPage({
             />
           </div>
         </section>
-      ) : (
+      ) : wonBanner || lostBanner ? null : (
         <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm text-slate-700">
           This load is no longer open for bidding.
         </div>
