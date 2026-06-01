@@ -42,8 +42,8 @@ const LABEL = 'block text-sm font-medium text-slate-700'
 const ERROR = 'mt-1 text-xs text-red-700'
 
 type HeaderErrors = Partial<{
-  origin_city: string
-  destination_city: string
+  origin_address: string
+  destination_address: string
   pickup_deadline: string
   reference_price: string
   items: string
@@ -128,10 +128,10 @@ export function NewLoadForm({
     const o = origin.trim()
     const d = destination.trim()
 
-    if (!o) h.origin_city = 'Required'
-    if (!d) h.destination_city = 'Required'
+    if (!o) h.origin_address = 'Required'
+    if (!d) h.destination_address = 'Required'
     if (o && d && o.toLowerCase() === d.toLowerCase()) {
-      h.destination_city = 'Must differ from origin'
+      h.destination_address = 'Must differ from origin'
     }
 
     if (!pickupDeadline) h.pickup_deadline = 'Required'
@@ -183,8 +183,8 @@ export function NewLoadForm({
     startTransition(async () => {
       try {
         await createLoad({
-          origin_city: origin.trim(),
-          destination_city: destination.trim(),
+          origin_address: origin.trim(),
+          destination_address: destination.trim(),
           truck_type_required: truckType,
           // datetime-local gives a string in browser local time; converting
           // to ISO here normalizes to UTC for storage.
@@ -230,41 +230,41 @@ export function NewLoadForm({
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
-          <label htmlFor="origin_city" className={LABEL}>
-            Origin city
+          <label htmlFor="origin_address" className={LABEL}>
+            Origin address
           </label>
           <input
-            id="origin_city"
-            name="origin_city"
+            id="origin_address"
+            name="origin_address"
             type="text"
             autoComplete="off"
             disabled={isPending}
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
-            placeholder="Mumbai"
+            placeholder="Plot 12, MIDC Bhosari, Pune"
             className={FIELD}
           />
-          {errors.origin_city ? (
-            <p className={ERROR}>{errors.origin_city}</p>
+          {errors.origin_address ? (
+            <p className={ERROR}>{errors.origin_address}</p>
           ) : null}
         </div>
         <div>
-          <label htmlFor="destination_city" className={LABEL}>
-            Destination city
+          <label htmlFor="destination_address" className={LABEL}>
+            Destination address
           </label>
           <input
-            id="destination_city"
-            name="destination_city"
+            id="destination_address"
+            name="destination_address"
             type="text"
             autoComplete="off"
             disabled={isPending}
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
-            placeholder="Pune"
+            placeholder="Warehouse 4, Hosur Road, Bengaluru"
             className={FIELD}
           />
-          {errors.destination_city ? (
-            <p className={ERROR}>{errors.destination_city}</p>
+          {errors.destination_address ? (
+            <p className={ERROR}>{errors.destination_address}</p>
           ) : null}
         </div>
       </div>

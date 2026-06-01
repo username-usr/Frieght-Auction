@@ -13,8 +13,9 @@ export const dynamic = 'force-dynamic'
 
 type LoadRow = {
   id: string
-  origin_city: string
-  destination_city: string
+  reference_code: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   status: LoadStatus
@@ -26,8 +27,9 @@ type WonBidRow = {
   amount_paise: number
   load: {
     id: string
-    origin_city: string
-    destination_city: string
+    reference_code: string
+    origin_address: string
+    destination_address: string
     truck_type_required: TruckType
     pickup_deadline: string
     status: LoadStatus
@@ -80,6 +82,28 @@ export default async function TruckerLoadsPage() {
   const trucker = await requireTrucker()
   const supabase = createAdminClient()
 
+  // Visibility allowlist: the per-load whitelist from migration 0015. The
+  // open-loads query also filters by truck_type below, so a load is shown
+  // only when BOTH conditions hold (trucker is invited + truck_type matches).
+  // Fetched first because the open-loads list is filtered client-side
+  // against this set.
+  const { data: visibilityRows, error: visibilityError } = await supabase
+    .from('load_trucker_visibility')
+    .select('load_id')
+    .eq('trucker_id', trucker.id)
+
+  if (visibilityError) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <p className="font-semibold">Could not load visibility list.</p>
+        <p className="mt-1 font-mono text-xs">{visibilityError.message}</p>
+      </div>
+    )
+  }
+  const visibleIds = new Set(
+    (visibilityRows ?? []).map((r) => r.load_id as string)
+  )
+
   // Two-row visibility filter for the trucker:
   //   * loads requesting their exact truck_type
   //   * loads requesting 'open' (the "any truck" wildcard in the enum)
@@ -88,7 +112,7 @@ export default async function TruckerLoadsPage() {
   const { data: openLoadsRaw, error: openError } = await supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required,
+      `id, reference_code, origin_address, destination_address, truck_type_required,
        pickup_deadline, status, created_at,
        bids:bids!bids_load_id_fkey(amount_paise, status)`
     )
@@ -107,13 +131,14 @@ export default async function TruckerLoadsPage() {
 
   // Won loads: this trucker's 'won' bids with their parent load embedded.
   // award_bid sets bid.status='won' atomically, so a 'won' bid is the
-  // authoritative signal that the trucker should still see the load.
+  // authoritative signal that the trucker should still see the load (no
+  // visibility filter needed — winning a bid means they had visibility).
   const { data: wonBidsRaw, error: wonError } = await supabase
     .from('bids')
     .select(
       `amount_paise,
        load:loads!bids_load_id_fkey(
-         id, origin_city, destination_city, truck_type_required,
+         id, reference_code, origin_address, destination_address, truck_type_required,
          pickup_deadline, status, created_at
        )`
     )
@@ -129,7 +154,10 @@ export default async function TruckerLoadsPage() {
     )
   }
 
-  const openRows = (openLoadsRaw ?? []) as unknown as LoadRow[]
+  // Filter open loads to those the trucker is allowed to see.
+  const openRows = ((openLoadsRaw ?? []) as unknown as LoadRow[]).filter(
+    (r) => visibleIds.has(r.id)
+  )
   const wonRows = (wonBidsRaw ?? []) as unknown as WonBidRow[]
 
   const openLoadIds = openRows.map((r) => r.id)
@@ -244,11 +272,16 @@ export default async function TruckerLoadsPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-base font-semibold text-slate-900">
-                      {won.load.origin_city} → {won.load.destination_city}
+                      {won.load.origin_address} → {won.load.destination_address}
                     </p>
-                    <span className="inline-block whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-green-900">
-                      Won
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="font-mono text-xs text-slate-500">
+                        {won.load.reference_code}
+                      </span>
+                      <span className="inline-block whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-green-900">
+                        Won
+                      </span>
+                    </div>
                   </div>
                   {won.itemSummary?.kind === 'single' ? (
                     <p className="mt-0.5 text-xs text-slate-600">
@@ -304,9 +337,14 @@ export default async function TruckerLoadsPage() {
                   href={`/t/loads/${load.id}`}
                   className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow"
                 >
-                  <p className="text-base font-semibold text-slate-900">
-                    {load.origin_city} → {load.destination_city}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-base font-semibold text-slate-900">
+                      {load.origin_address} → {load.destination_address}
+                    </p>
+                    <span className="font-mono text-xs text-slate-500">
+                      {load.reference_code}
+                    </span>
+                  </div>
                   {load.itemSummary?.kind === 'single' ? (
                     <p className="mt-0.5 text-xs text-slate-600">
                       {load.itemSummary.quantity.toLocaleString('en-IN')}

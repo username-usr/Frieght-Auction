@@ -25,8 +25,9 @@ type LoadItem = {
 
 type LoadDetail = {
   id: string
-  origin_city: string
-  destination_city: string
+  reference_code: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   reference_price_paise: number | null
@@ -44,6 +45,18 @@ type BidRow = {
   created_at: string
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const LOAD_SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
+           pickup_deadline, reference_price_paise, notes, status, created_at,
+           items:load_items(
+             id, position, quantity_value, weight_value, weight_unit,
+             product:product_names!product_name_id(name),
+             container:container_types!container_type_id(name),
+             quantity_unit:quantity_units!quantity_unit_id(name)
+           )`
+
 export default async function TruckerLoadDetailPage({
   params,
 }: {
@@ -53,27 +66,15 @@ export default async function TruckerLoadDetailPage({
   const trucker = await requireTrucker()
   const supabase = createAdminClient()
 
-  const [{ data: loadRaw, error: loadError }, { data: bidsRaw }] =
-    await Promise.all([
-      supabase
-        .from('loads')
-        .select(
-          `id, origin_city, destination_city, truck_type_required,
-           pickup_deadline, reference_price_paise, notes, status, created_at,
-           items:load_items(
-             id, position, quantity_value, weight_value, weight_unit,
-             product:product_names!product_name_id(name),
-             container:container_types!container_type_id(name),
-             quantity_unit:quantity_units!quantity_unit_id(name)
-           )`
-        )
-        .eq('id', id)
-        .maybeSingle(),
-      supabase
-        .from('bids')
-        .select('id, amount_paise, status, trucker_id, created_at')
-        .eq('load_id', id),
-    ])
+  // Lookup by UUID or by reference_code (4-char alphanumeric handle from
+  // migration 0015). The trucker portal has fewer internal links than the
+  // operator side, but accepting either form means shared URLs like
+  // /t/loads/A8K2 work too.
+  const loadQuery = supabase.from('loads').select(LOAD_SELECT)
+  const { data: loadRaw, error: loadError } = await (UUID_RE.test(id)
+    ? loadQuery.eq('id', id)
+    : loadQuery.eq('reference_code', id.toUpperCase())
+  ).maybeSingle()
 
   if (loadError) {
     return (
@@ -86,6 +87,34 @@ export default async function TruckerLoadDetailPage({
   if (!loadRaw) notFound()
 
   const load = loadRaw as unknown as LoadDetail
+
+  // Visibility + bids in parallel — both keyed on load.id. The page is
+  // gated below: if the trucker isn't on the visibility list AND has no
+  // bid history on this load, we 404 to mask the load's existence.
+  const [{ data: bidsRaw }, { data: visibilityRow }] = await Promise.all([
+    supabase
+      .from('bids')
+      .select('id, amount_paise, status, trucker_id, created_at')
+      .eq('load_id', load.id),
+    supabase
+      .from('load_trucker_visibility')
+      .select('load_id')
+      .eq('load_id', load.id)
+      .eq('trucker_id', trucker.id)
+      .maybeSingle(),
+  ])
+
+  const bids = (bidsRaw ?? []) as BidRow[]
+  const ownAnyBid = bids.find((b) => b.trucker_id === trucker.id)
+  const isVisible = visibilityRow != null
+
+  // Gate: a trucker who never bid here AND isn't on the visibility list
+  // should never have reached this page. 404 keeps the URL opaque rather
+  // than leaking "load exists but you can't see it".
+  if (!ownAnyBid && !isVisible) {
+    notFound()
+  }
+
   const items = [...load.items].sort((a, b) => a.position - b.position)
   const totals = items.reduce(
     (acc, it) => {
@@ -98,7 +127,6 @@ export default async function TruckerLoadDetailPage({
     },
     { kg: 0, liters: 0 }
   )
-  const bids = (bidsRaw ?? []) as BidRow[]
 
   // Anonymized L1: lowest amount among ACTIVE bids. We deliberately do not
   // reveal the bidder identity to a trucker — they only see the number.
@@ -154,9 +182,14 @@ export default async function TruckerLoadDetailPage({
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-start justify-between gap-2">
-          <h1 className="text-lg font-semibold text-slate-900">
-            {load.origin_city} → {load.destination_city}
-          </h1>
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900">
+              {load.origin_address} → {load.destination_address}
+            </h1>
+            <p className="mt-1 font-mono text-xs text-slate-500">
+              #{load.reference_code}
+            </p>
+          </div>
           <span className="inline-block whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-700">
             {load.status}
           </span>

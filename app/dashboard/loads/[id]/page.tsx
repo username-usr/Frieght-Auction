@@ -27,8 +27,9 @@ type LoadItemRow = {
 
 type LoadDetailRow = {
   id: string
-  origin_city: string
-  destination_city: string
+  reference_code: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   reference_price_paise: number | null
@@ -50,6 +51,24 @@ const LOAD_STATUS_BADGE: Record<LoadStatus, string> = {
   completed: 'bg-slate-200 text-slate-700',
 }
 
+// Standard UUID v4 shape with dashes; anything else (e.g. 4-char ref code)
+// is looked up by reference_code instead. Letting users hit either form
+// means a quoted "Load #A8K2" can become a URL without translation.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const LOAD_SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
+       pickup_deadline, reference_price_paise, notes, status, created_at,
+       posted_by, cancelled_at, cancellation_reason,
+       posted_by_operator:operators!loads_posted_by_fkey(full_name),
+       cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name),
+       items:load_items(
+         id, position, quantity_value, weight_value, weight_unit,
+         product:product_names!product_name_id(name),
+         container:container_types!container_type_id(name),
+         quantity_unit:quantity_units!quantity_unit_id(name)
+       )`
+
 export default async function LoadDetailPage({
   params,
 }: {
@@ -64,23 +83,11 @@ export default async function LoadDetailPage({
   // this call share one Supabase fetch via React's cache().
   const { operator: currentOperator } = await getOperatorContext()
 
-  const { data: loadRaw, error: loadError } = await supabase
-    .from('loads')
-    .select(
-      `id, origin_city, destination_city, truck_type_required,
-       pickup_deadline, reference_price_paise, notes, status, created_at,
-       posted_by, cancelled_at, cancellation_reason,
-       posted_by_operator:operators!loads_posted_by_fkey(full_name),
-       cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name),
-       items:load_items(
-         id, position, quantity_value, weight_value, weight_unit,
-         product:product_names!product_name_id(name),
-         container:container_types!container_type_id(name),
-         quantity_unit:quantity_units!quantity_unit_id(name)
-       )`
-    )
-    .eq('id', id)
-    .maybeSingle()
+  const loadQuery = supabase.from('loads').select(LOAD_SELECT)
+  const { data: loadRaw, error: loadError } = await (UUID_RE.test(id)
+    ? loadQuery.eq('id', id)
+    : loadQuery.eq('reference_code', id.toUpperCase())
+  ).maybeSingle()
 
   if (loadError) {
     return (
@@ -117,11 +124,10 @@ export default async function LoadDetailPage({
       `id, amount_paise, status, created_at,
        trucker:truckers!bids_trucker_id_fkey(full_name, phone_e164, truck_type)`
     )
-    .eq('load_id', id)
+    .eq('load_id', load.id)
     .order('amount_paise', { ascending: true })
 
   const bids = (bidsRaw ?? []) as unknown as BidRowData[]
-  const shortId = id.slice(0, 8)
 
   // Server-side gate: button renders only when the viewer is the poster
   // AND the load is still open. The DB function re-enforces both.
@@ -141,13 +147,15 @@ export default async function LoadDetailPage({
           Dashboard
         </Link>
         <span className="mx-2 text-slate-400">/</span>
-        <span className="font-mono text-slate-900">Load #{shortId}</span>
+        <span className="font-mono text-slate-900">
+          Load #{load.reference_code}
+        </span>
       </nav>
 
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-            {load.origin_city} → {load.destination_city}
+            {load.origin_address} → {load.destination_address}
           </h2>
           <div className="flex items-center gap-3">
             <span
@@ -311,7 +319,7 @@ export default async function LoadDetailPage({
         </div>
       ) : (
         <BidsTableRealtime
-          loadId={id}
+          loadId={load.id}
           loadStatus={load.status}
           initialBids={bids}
         />

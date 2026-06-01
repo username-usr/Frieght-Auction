@@ -13,8 +13,9 @@ import type { LoadStatus, TruckType } from '@/lib/types'
 
 export type LoadListRow = {
   id: string
-  origin_city: string
-  destination_city: string
+  reference_code: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   status: LoadStatus
@@ -28,7 +29,7 @@ export type LoadListRow = {
 // summary stays current when loads change (e.g. a new INSERT). Per Part D,
 // items don't get their own realtime channel — a page refresh shows item
 // edits made after the load was first posted.
-const SELECT = `id, origin_city, destination_city, truck_type_required,
+const SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
   pickup_deadline, status, created_at,
   posted_by_operator:operators!loads_posted_by_fkey(full_name),
   bids(count),
@@ -36,8 +37,9 @@ const SELECT = `id, origin_city, destination_city, truck_type_required,
 
 type LoadsSelectRow = {
   id: string
-  origin_city: string
-  destination_city: string
+  reference_code: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   status: LoadStatus
@@ -51,8 +53,9 @@ function normalize(row: LoadsSelectRow): LoadListRow {
   const items = [...row.load_items].sort((a, b) => a.position - b.position)
   return {
     id: row.id,
-    origin_city: row.origin_city,
-    destination_city: row.destination_city,
+    reference_code: row.reference_code,
+    origin_address: row.origin_address,
+    destination_address: row.destination_address,
     truck_type_required: row.truck_type_required,
     pickup_deadline: row.pickup_deadline,
     status: row.status,
@@ -184,6 +187,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
           <tr>
+            <th className="px-4 py-3 text-left">Ref</th>
             <th className="px-4 py-3 text-left">Posted</th>
             <th className="px-4 py-3 text-left">Origin → Destination</th>
             <th className="px-4 py-3 text-left">Items</th>
@@ -205,11 +209,14 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                   flashing ? 'bg-blue-100' : ''
                 }`}
               >
+                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium text-slate-900">
+                  {load.reference_code}
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                   {formatRelativeTime(load.created_at)}
                 </td>
                 <td className="px-4 py-3 font-medium text-slate-900">
-                  {load.origin_city} → {load.destination_city}
+                  {load.origin_address} → {load.destination_address}
                 </td>
                 <td className="px-4 py-3 text-slate-700">
                   {load.items_summary}

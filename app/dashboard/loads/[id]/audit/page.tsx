@@ -37,7 +37,7 @@ export default async function AuditPage({
   const [loadResult, entriesResult] = await Promise.all([
     supabase
       .from('loads')
-      .select('id, origin_city, destination_city, status')
+      .select('id, reference_code, origin_address, destination_address, status')
       .eq('id', id)
       .maybeSingle(),
     supabase
@@ -111,7 +111,7 @@ export default async function AuditPage({
     }
   }
 
-  const shortId = id.slice(0, 8)
+  const refCode = load.reference_code
 
   return (
     <div className="space-y-6">
@@ -127,7 +127,7 @@ export default async function AuditPage({
           href={`/dashboard/loads/${id}`}
           className="text-slate-600 hover:text-slate-900"
         >
-          <span className="font-mono">Load #{shortId}</span>
+          <span className="font-mono">Load #{refCode}</span>
         </Link>
         <span className="mx-2 text-slate-400">/</span>
         <span className="text-slate-900">Activity log</span>
@@ -135,10 +135,10 @@ export default async function AuditPage({
 
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Activity log for Load #{shortId}
+          Activity log for Load #{refCode}
         </h1>
         <p className="mt-1 text-sm text-slate-600">
-          {load.origin_city} → {load.destination_city} ·{' '}
+          {load.origin_address} → {load.destination_address} ·{' '}
           <span className="capitalize">{load.status}</span>
         </p>
       </section>

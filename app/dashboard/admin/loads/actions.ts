@@ -46,7 +46,7 @@ async function addLookup(table: LookupTable, rawName: string): Promise<LookupRow
       .select('id, name, created_at')
       .single()
     if (error) throw new Error(error.message)
-    revalidatePath('/dashboard/admin')
+    revalidatePath('/dashboard/admin/loads')
     return data as LookupRow
   }
 
@@ -57,7 +57,7 @@ async function addLookup(table: LookupTable, rawName: string): Promise<LookupRow
     .single()
   if (error) throw new Error(error.message)
 
-  revalidatePath('/dashboard/admin')
+  revalidatePath('/dashboard/admin/loads')
   return data as LookupRow
 }
 
@@ -72,7 +72,7 @@ async function deleteLookup(table: LookupTable, id: string): Promise<void> {
     .is('deleted_at', null)
   if (error) throw new Error(error.message)
 
-  revalidatePath('/dashboard/admin')
+  revalidatePath('/dashboard/admin/loads')
 }
 
 export async function addProductNameAction(name: string): Promise<LookupRow> {

@@ -22,7 +22,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, operator } = await getOperatorContext()
+  const { user, operator, isAdmin } = await getOperatorContext()
   if (!user) redirect('/login')
   if (!operator) redirect('/not-authorized')
 
@@ -45,12 +45,14 @@ export default async function DashboardLayout({
             >
               Loads
             </Link>
-            <Link
-              href="/dashboard/admin"
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              Admin
-            </Link>
+            {isAdmin ? (
+              <Link
+                href="/dashboard/admin"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Admin
+              </Link>
+            ) : null}
           </nav>
           <div className="flex items-center gap-4">
             <div className="text-right text-sm leading-tight">

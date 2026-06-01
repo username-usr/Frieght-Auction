@@ -19,8 +19,9 @@ const VALID_FILTERS: FilterValue[] = [
 
 type LoadsSelectRow = {
   id: string
-  origin_city: string
-  destination_city: string
+  reference_code: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   status: LoadStatus
@@ -51,7 +52,7 @@ export default async function LoadsPage({
   let query = supabase
     .from('loads')
     .select(
-      `id, origin_city, destination_city, truck_type_required,
+      `id, reference_code, origin_address, destination_address, truck_type_required,
        pickup_deadline, status, created_at,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
        bids(count)`
@@ -113,8 +114,9 @@ export default async function LoadsPage({
       .sort((a, b) => a.position - b.position)
     return {
       id: row.id,
-      origin_city: row.origin_city,
-      destination_city: row.destination_city,
+      reference_code: row.reference_code,
+      origin_address: row.origin_address,
+      destination_address: row.destination_address,
       truck_type_required: row.truck_type_required,
       pickup_deadline: row.pickup_deadline,
       status: row.status,

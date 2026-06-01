@@ -14,8 +14,8 @@ export type CreateLoadItemInput = {
 }
 
 export type CreateLoadInput = {
-  origin_city: string
-  destination_city: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   reference_price_paise: number | null
@@ -50,13 +50,19 @@ function validateItem(it: CreateLoadItemInput, idx: number): void {
 
 // Server action invoked from the new-load form. Re-validates input as a
 // safety net (the client validates first, but never trust the client) and
-// then delegates the actual writes to create_load_with_items() so the load
-// and its items land in a single transaction (migration 0011). The RPC
-// reads auth.uid() server-side for posted_by and enforces the operator
-// check, so the client doesn't pass either.
+// then delegates the actual writes to create_load_with_items() so the load,
+// items, and per-trucker visibility rows all land in a single transaction
+// (migration 0015). The RPC reads auth.uid() server-side for posted_by and
+// enforces the operator check, so the client doesn't pass either.
+//
+// PART-I-PREQUEL note: the form doesn't yet expose a trucker multi-select,
+// so we auto-pick "every active non-archived trucker whose truck_type
+// matches the load (or is 'open', the wildcard)". This preserves the prior
+// "all matching truckers see the load" behavior. Part I proper will replace
+// this query with an explicit operator-driven selection step in the form.
 export async function createLoad(input: CreateLoadInput): Promise<never> {
-  const origin = input.origin_city.trim()
-  const destination = input.destination_city.trim()
+  const origin = input.origin_address.trim()
+  const destination = input.destination_address.trim()
 
   if (!origin || !destination) {
     throw new Error('Origin and destination are required.')
@@ -90,16 +96,35 @@ export async function createLoad(input: CreateLoadInput): Promise<never> {
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated.')
 
+  // Auto-populate the visibility list: every active non-archived trucker
+  // whose truck_type matches the load's requirement OR is the 'open'
+  // wildcard. RLS on truckers allows operator SELECT.
+  const { data: matchingTruckers, error: truckersError } = await supabase
+    .from('truckers')
+    .select('id')
+    .or(`truck_type.eq.${input.truck_type_required},truck_type.eq.open`)
+    .eq('status', 'active')
+    .is('archived_at', null)
+
+  if (truckersError) throw new Error(truckersError.message)
+  if (!matchingTruckers || matchingTruckers.length === 0) {
+    throw new Error(
+      'No active truckers available for this truck type. Add truckers in admin first.'
+    )
+  }
+  const truckerIds = matchingTruckers.map((t) => t.id)
+
   const { data: loadId, error } = await supabase.rpc(
     'create_load_with_items',
     {
-      p_origin_city: origin,
-      p_destination_city: destination,
+      p_origin_address: origin,
+      p_destination_address: destination,
       p_truck_type_required: input.truck_type_required,
       p_pickup_deadline: input.pickup_deadline,
       p_reference_price_paise: input.reference_price_paise,
       p_notes: input.notes,
       p_items: input.items,
+      p_trucker_ids: truckerIds,
     }
   )
 
