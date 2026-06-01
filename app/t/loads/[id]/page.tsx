@@ -158,6 +158,8 @@ export default async function TruckerLoadDetailPage({
   const lostBanner =
     load.status === 'awarded' && ownNonActiveBid?.status === 'lost'
 
+  const isSuspended = trucker.status === 'blocked'
+
   return (
     <div className="space-y-5">
       <nav className="text-xs">
@@ -168,6 +170,15 @@ export default async function TruckerLoadDetailPage({
           ← Back to loads
         </Link>
       </nav>
+
+      {isSuspended ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-semibold">Your account is suspended from bidding</p>
+          <p className="mt-1 text-xs">
+            Contact the operator to reactivate your account.
+          </p>
+        </div>
+      ) : null}
 
       {wonBanner ? (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-900">
@@ -321,6 +332,9 @@ export default async function TruckerLoadDetailPage({
             <PlaceBidForm
               loadId={load.id}
               existingAmountPaise={ownActiveBid?.amount_paise ?? null}
+              disabledReason={
+                isSuspended ? 'Your account is suspended.' : null
+              }
             />
           </div>
         </section>

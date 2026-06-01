@@ -38,13 +38,16 @@ export const getTrucker = cache(async (): Promise<CurrentTrucker | null> => {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('truckers')
-    .select('id, phone_e164, full_name, truck_type, home_base_city, status')
+    .select(
+      'id, phone_e164, full_name, truck_type, home_base_city, status, archived_at'
+    )
     .eq('id', session.truckerId)
     .maybeSingle()
 
   console.log('[getTrucker] db lookup:', {
     hasData: !!data,
     status: data?.status,
+    archived: !!data?.archived_at,
     error: error?.message,
   })
 
@@ -53,12 +56,24 @@ export const getTrucker = cache(async (): Promise<CurrentTrucker | null> => {
     return null
   }
 
-  if (data.status !== 'active') {
-    console.log('[getTrucker] returning null: status =', data.status)
+  // Archived truckers can't sign in at all — drop the session and let the
+  // caller redirect to /t/login. The DB enforces this via place_trucker_bid
+  // too (migration 0013), so even a stolen cookie can't place a bid.
+  if (data.archived_at) {
+    console.log('[getTrucker] returning null: archived')
     return null
   }
 
-  console.log('[getTrucker] success, returning trucker')
+  // 'blocked' (suspended) truckers DO still get through here — they can
+  // view loads and their bid history, but the bid form is disabled and
+  // place_trucker_bid rejects them at the DB. 'inactive' (not yet onboarded
+  // or otherwise sidelined) is still rejected.
+  if (data.status === 'inactive') {
+    console.log('[getTrucker] returning null: status = inactive')
+    return null
+  }
+
+  console.log('[getTrucker] success, status:', data.status)
   return data as CurrentTrucker
 })
 

@@ -9,9 +9,18 @@ import { formatINR } from '@/lib/format'
 type Props = {
   loadId: string
   existingAmountPaise: number | null
+  // If set, the bid input stays visible (so the trucker can see their last
+  // amount) but the submit button is replaced with this message. Used when
+  // the trucker is suspended (status='blocked') — the DB also rejects via
+  // place_trucker_bid, so this is for UX, not security.
+  disabledReason?: string | null
 }
 
-export function PlaceBidForm({ loadId, existingAmountPaise }: Props) {
+export function PlaceBidForm({
+  loadId,
+  existingAmountPaise,
+  disabledReason,
+}: Props) {
   const initialRupees =
     existingAmountPaise != null ? String(existingAmountPaise / 100) : ''
   const [rupees, setRupees] = useState(initialRupees)
@@ -63,19 +72,25 @@ export function PlaceBidForm({ loadId, existingAmountPaise }: Props) {
           Whole rupees only. Lowest bid wins when the load is awarded.
         </p>
       </div>
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="block h-12 w-full rounded-md bg-blue-900 px-4 text-base font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isSubmitting
-          ? isUpdate
-            ? 'Updating bid…'
-            : 'Placing bid…'
-          : isUpdate
-            ? 'Update bid'
-            : 'Submit bid'}
-      </button>
+      {disabledReason ? (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          {disabledReason}
+        </div>
+      ) : (
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="block h-12 w-full rounded-md bg-blue-900 px-4 text-base font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting
+            ? isUpdate
+              ? 'Updating bid…'
+              : 'Placing bid…'
+            : isUpdate
+              ? 'Update bid'
+              : 'Submit bid'}
+        </button>
+      )}
     </form>
   )
 }

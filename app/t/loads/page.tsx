@@ -237,6 +237,8 @@ export default async function TruckerLoadsPage() {
         new Date(b.load.pickup_deadline).getTime()
     )
 
+  const isSuspended = trucker.status === 'blocked'
+
   return (
     <div className="space-y-5">
       <header className="flex items-start justify-between gap-3">
@@ -257,6 +259,15 @@ export default async function TruckerLoadsPage() {
           Sign out
         </Link>
       </header>
+
+      {isSuspended ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-semibold">Your account is suspended from bidding</p>
+          <p className="mt-1 text-xs">
+            Contact the operator to reactivate your account.
+          </p>
+        </div>
+      ) : null}
 
       {wonLoads.length > 0 ? (
         <section className="space-y-3">
