@@ -12,13 +12,12 @@ import { createClient } from '@/lib/supabase/server'
 // gives a friendlier error than PostgREST's "row violates row-level
 // security" message.
 
-type ZoneRow = {
+export type ZoneRow = {
   id: string
   name: string
   created_at: string
+  deleted_at: string | null
 }
-
-export type { ZoneRow }
 
 async function requireAdmin(): Promise<void> {
   const { isAdmin } = await getOperatorContext()
