@@ -21,6 +21,7 @@ export type CreateLoadInput = {
   reference_price_paise: number | null
   notes: string | null
   items: CreateLoadItemInput[]
+  trucker_ids: string[]
 }
 
 const UUID_RE =
@@ -55,11 +56,11 @@ function validateItem(it: CreateLoadItemInput, idx: number): void {
 // (migration 0015). The RPC reads auth.uid() server-side for posted_by and
 // enforces the operator check, so the client doesn't pass either.
 //
-// PART-I-PREQUEL note: the form doesn't yet expose a trucker multi-select,
-// so we auto-pick "every active non-archived trucker whose truck_type
-// matches the load (or is 'open', the wildcard)". This preserves the prior
-// "all matching truckers see the load" behavior. Part I proper will replace
-// this query with an explicit operator-driven selection step in the form.
+// trucker_ids is the explicit operator-chosen visibility list (Part I). We
+// re-validate each id against the DB to confirm the trucker exists, isn't
+// archived, and matches the load's truck_type criteria — defends against
+// a stale client picking truckers who've since been archived or had their
+// truck_type changed.
 export async function createLoad(input: CreateLoadInput): Promise<never> {
   const origin = input.origin_address.trim()
   const destination = input.destination_address.trim()
@@ -88,6 +89,18 @@ export async function createLoad(input: CreateLoadInput): Promise<never> {
   }
   input.items.forEach((it, idx) => validateItem(it, idx))
 
+  if (!Array.isArray(input.trucker_ids) || input.trucker_ids.length === 0) {
+    throw new Error('Select at least one trucker.')
+  }
+  // De-dupe before checking — duplicate ids in the payload would otherwise
+  // collide on load_trucker_visibility's primary key inside the RPC.
+  const truckerIds = Array.from(new Set(input.trucker_ids))
+  for (const id of truckerIds) {
+    if (!UUID_RE.test(id)) {
+      throw new Error('One or more selected truckers are no longer eligible. Refresh and try again.')
+    }
+  }
+
   const supabase = await createClient()
   // Surface "not authenticated" with a clean message before the RPC.
   // posted_by isn't passed — the function reads auth.uid() itself.
@@ -96,23 +109,35 @@ export async function createLoad(input: CreateLoadInput): Promise<never> {
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated.')
 
-  // Auto-populate the visibility list: every active non-archived trucker
-  // whose truck_type matches the load's requirement OR is the 'open'
-  // wildcard. RLS on truckers allows operator SELECT.
-  const { data: matchingTruckers, error: truckersError } = await supabase
+  // Re-validate the selected truckers server-side. RLS lets operators SELECT
+  // truckers, so the authenticated client works here. The OR criteria mirrors
+  // the trucker portal's load-visibility filter: a trucker can bid when
+  // their truck_type matches the load's requirement, or when the load
+  // requests the 'open' wildcard. We allow status='blocked' through —
+  // suspended truckers can still be invited (they just can't bid until
+  // reactivated), which matches the operator UI's behavior.
+  const { data: validTruckers, error: validateErr } = await supabase
     .from('truckers')
-    .select('id')
-    .or(`truck_type.eq.${input.truck_type_required},truck_type.eq.open`)
-    .eq('status', 'active')
-    .is('archived_at', null)
+    .select('id, truck_type, archived_at')
+    .in('id', truckerIds)
 
-  if (truckersError) throw new Error(truckersError.message)
-  if (!matchingTruckers || matchingTruckers.length === 0) {
+  if (validateErr) throw new Error(validateErr.message)
+
+  const eligibleIds = new Set(
+    (validTruckers ?? [])
+      .filter(
+        (t) =>
+          t.archived_at === null &&
+          (t.truck_type === input.truck_type_required ||
+            t.truck_type === 'open')
+      )
+      .map((t) => t.id)
+  )
+  if (eligibleIds.size !== truckerIds.length) {
     throw new Error(
-      'No active truckers available for this truck type. Add truckers in admin first.'
+      'One or more selected truckers are no longer eligible. Refresh and try again.'
     )
   }
-  const truckerIds = matchingTruckers.map((t) => t.id)
 
   const { data: loadId, error } = await supabase.rpc(
     'create_load_with_items',

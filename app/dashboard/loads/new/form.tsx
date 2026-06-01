@@ -1,9 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import type { LookupOption, TruckType, WeightUnit } from '@/lib/types'
+import type {
+  LookupOption,
+  TruckType,
+  TruckerStatus,
+  WeightUnit,
+} from '@/lib/types'
 import { createLoad } from './actions'
 
 // `redirect()` inside a server action surfaces on the client as a thrown
@@ -33,9 +38,6 @@ const WEIGHT_UNITS: { value: WeightUnit; label: string }[] = [
   { value: 'liters', label: 'liters' },
 ]
 
-// Shared input/select/textarea styling that matches the login page so the app
-// feels consistent. Once we introduce a third place that needs this we'll
-// promote it to a real component.
 const FIELD =
   'mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-500 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50'
 const LABEL = 'block text-sm font-medium text-slate-700'
@@ -47,6 +49,7 @@ type HeaderErrors = Partial<{
   pickup_deadline: string
   reference_price: string
   items: string
+  truckers: string
 }>
 
 type ItemErrors = Partial<{
@@ -85,16 +88,26 @@ function blankItem(): ItemDraft {
   }
 }
 
+export type EligibleTrucker = {
+  id: string
+  phone_e164: string
+  full_name: string | null
+  truck_type: TruckType
+  status: TruckerStatus
+}
+
 type Props = {
   productOptions: LookupOption[]
   containerOptions: LookupOption[]
   quantityUnitOptions: LookupOption[]
+  truckerPool: EligibleTrucker[]
 }
 
 export function NewLoadForm({
   productOptions,
   containerOptions,
   quantityUnitOptions,
+  truckerPool,
 }: Props) {
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
@@ -105,7 +118,54 @@ export function NewLoadForm({
   const [items, setItems] = useState<ItemDraft[]>(() => [blankItem()])
   const [errors, setErrors] = useState<HeaderErrors>({})
   const [itemErrors, setItemErrors] = useState<ItemErrors[]>([{}])
+  const [selectedTruckerIds, setSelectedTruckerIds] = useState<Set<string>>(
+    () => new Set()
+  )
   const [isPending, startTransition] = useTransition()
+
+  // Truckers whose truck_type matches the load's requirement OR who can
+  // run any load via the 'open' wildcard. Re-derived on every truckType
+  // change.
+  const matchingTruckers = useMemo(
+    () =>
+      truckerPool.filter(
+        (t) => t.truck_type === truckType || t.truck_type === 'open'
+      ),
+    [truckerPool, truckType]
+  )
+  const activeMatching = useMemo(
+    () => matchingTruckers.filter((t) => t.status === 'active'),
+    [matchingTruckers]
+  )
+  const suspendedMatching = useMemo(
+    () => matchingTruckers.filter((t) => t.status === 'blocked'),
+    [matchingTruckers]
+  )
+
+  // Reset selection when the truck type changes — the matching pool just
+  // shifted, so previous selections are mostly irrelevant. Default = every
+  // active trucker who matches (suspended truckers start unchecked, per
+  // brief).
+  useEffect(() => {
+    setSelectedTruckerIds(new Set(activeMatching.map((t) => t.id)))
+  }, [activeMatching])
+
+  function toggleTrucker(id: string) {
+    setSelectedTruckerIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function selectAllMatching() {
+    setSelectedTruckerIds(new Set(matchingTruckers.map((t) => t.id)))
+  }
+
+  function deselectAll() {
+    setSelectedTruckerIds(new Set())
+  }
 
   function updateItem(idx: number, patch: Partial<ItemDraft>) {
     setItems((prev) =>
@@ -147,6 +207,10 @@ export function NewLoadForm({
     }
 
     if (items.length === 0) h.items = 'Add at least one product'
+
+    if (selectedTruckerIds.size === 0) {
+      h.truckers = 'Select at least one trucker.'
+    }
 
     const itemErrs: ItemErrors[] = items.map((it) => {
       const e: ItemErrors = {}
@@ -201,6 +265,7 @@ export function NewLoadForm({
             weight_value: Number(it.weight_value),
             weight_unit: it.weight_unit,
           })),
+          trucker_ids: Array.from(selectedTruckerIds),
         })
         // createLoad redirects on success — control never gets here.
       } catch (err) {
@@ -225,6 +290,10 @@ export function NewLoadForm({
     },
     { kg: 0, liters: 0 }
   )
+
+  const noMatchingTruckers = matchingTruckers.length === 0
+  const submitDisabled =
+    isPending || selectedTruckerIds.size === 0 || noMatchingTruckers
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
@@ -512,6 +581,80 @@ export function NewLoadForm({
         {errors.items ? <p className={ERROR}>{errors.items}</p> : null}
       </div>
 
+      <div className="space-y-3 border-t border-slate-200 pt-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Truckers</h2>
+          <span className="text-xs text-slate-600">
+            <span className="font-medium text-slate-900">
+              {selectedTruckerIds.size}
+            </span>
+            {' / '}
+            {matchingTruckers.length} selected
+          </span>
+        </div>
+
+        {noMatchingTruckers ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            No truckers available for this truck type. Add truckers in admin
+            first, or choose a different truck type.
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={selectAllMatching}
+                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={deselectAll}
+                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Deselect all
+              </button>
+              <p className="text-slate-500">
+                Suspended truckers can be invited but can&apos;t bid until
+                reactivated.
+              </p>
+            </div>
+
+            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
+              {activeMatching.map((t) => (
+                <TruckerCheckbox
+                  key={t.id}
+                  trucker={t}
+                  checked={selectedTruckerIds.has(t.id)}
+                  disabled={isPending}
+                  onToggle={() => toggleTrucker(t.id)}
+                />
+              ))}
+              {suspendedMatching.length > 0 ? (
+                <li className="bg-slate-50 px-3 py-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Suspended
+                </li>
+              ) : null}
+              {suspendedMatching.map((t) => (
+                <TruckerCheckbox
+                  key={t.id}
+                  trucker={t}
+                  checked={selectedTruckerIds.has(t.id)}
+                  disabled={isPending}
+                  onToggle={() => toggleTrucker(t.id)}
+                  suspended
+                />
+              ))}
+            </ul>
+          </>
+        )}
+
+        {errors.truckers ? <p className={ERROR}>{errors.truckers}</p> : null}
+      </div>
+
       <div>
         <label htmlFor="reference_price" className={LABEL}>
           Reference price (₹){' '}
@@ -558,7 +701,7 @@ export function NewLoadForm({
       <div className="flex items-center gap-3 border-t border-slate-200 pt-5">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={submitDisabled}
           className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? 'Posting…' : 'Post load'}
@@ -571,5 +714,55 @@ export function NewLoadForm({
         </Link>
       </div>
     </form>
+  )
+}
+
+function TruckerCheckbox({
+  trucker,
+  checked,
+  disabled,
+  onToggle,
+  suspended,
+}: {
+  trucker: EligibleTrucker
+  checked: boolean
+  disabled: boolean
+  onToggle: () => void
+  suspended?: boolean
+}) {
+  const inputId = `trucker-${trucker.id}`
+  return (
+    <li>
+      <label
+        htmlFor={inputId}
+        className={`flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-slate-50 ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+      >
+        <input
+          id={inputId}
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={onToggle}
+          className="h-4 w-4 rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-slate-900">
+              {trucker.full_name ?? 'Unnamed trucker'}
+            </span>
+            {suspended ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                suspended
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+            <span className="font-mono">{trucker.phone_e164}</span>
+            <span>·</span>
+            <span className="capitalize">{trucker.truck_type}</span>
+          </div>
+        </div>
+      </label>
+    </li>
   )
 }

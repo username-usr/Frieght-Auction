@@ -37,6 +37,7 @@ type LoadDetailRow = {
   status: LoadStatus
   created_at: string
   posted_by: string
+  zone_id: string | null
   cancelled_at: string | null
   cancellation_reason: string | null
   posted_by_operator: { full_name: string } | null
@@ -59,7 +60,7 @@ const UUID_RE =
 
 const LOAD_SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
        pickup_deadline, reference_price_paise, notes, status, created_at,
-       posted_by, cancelled_at, cancellation_reason,
+       posted_by, zone_id, cancelled_at, cancellation_reason,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
        cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name),
        items:load_items(
@@ -81,7 +82,7 @@ export default async function LoadDetailPage({
   // before this page renders, so `operator` is guaranteed here. We use the
   // memoized helper to avoid a second round-trip — the layout's call and
   // this call share one Supabase fetch via React's cache().
-  const { operator: currentOperator } = await getOperatorContext()
+  const { operator: currentOperator, isAdmin } = await getOperatorContext()
 
   const loadQuery = supabase.from('loads').select(LOAD_SELECT)
   const { data: loadRaw, error: loadError } = await (UUID_RE.test(id)
@@ -100,6 +101,17 @@ export default async function LoadDetailPage({
   if (!loadRaw) notFound()
 
   const load = loadRaw as unknown as LoadDetailRow
+
+  // Zone-based visibility gate. Admins and unzoned operators see everything;
+  // a zoned operator can see no-zone loads plus loads matching their zone.
+  // notFound() rather than a "denied" page so the URL stays opaque.
+  const viewerZoneId = currentOperator?.zone_id ?? null
+  const canSee =
+    isAdmin ||
+    viewerZoneId == null ||
+    load.zone_id == null ||
+    load.zone_id === viewerZoneId
+  if (!canSee) notFound()
   const items = [...load.items].sort((a, b) => a.position - b.position)
   const totals = items.reduce(
     (acc, it) => {
@@ -186,13 +198,21 @@ export default async function LoadDetailPage({
           </p>
         ) : null}
 
-        <div className="mt-3 text-sm">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
           <Link
             href={`/dashboard/loads/${load.id}/audit`}
             className="font-medium text-slate-700 hover:text-slate-900"
           >
             View activity log →
           </Link>
+          {load.status === 'open' ? (
+            <Link
+              href={`/dashboard/loads/${load.id}/visibility`}
+              className="font-medium text-slate-700 hover:text-slate-900"
+            >
+              Edit visibility →
+            </Link>
+          ) : null}
         </div>
 
         <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">

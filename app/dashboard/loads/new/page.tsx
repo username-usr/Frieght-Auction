@@ -1,12 +1,18 @@
 import Link from 'next/link'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import type { LookupOption } from '@/lib/types'
-import { NewLoadForm } from './form'
+import type { LookupOption, TruckType, TruckerStatus } from '@/lib/types'
+import { NewLoadForm, type EligibleTrucker } from './form'
 
 export default async function NewLoadPage() {
   const supabase = await createClient()
 
-  const [products, containers, quantities] = await Promise.all([
+  // Truckers use the admin client because operator-level SELECT on
+  // truckers is allowed by RLS but inconsistent across environments,
+  // and we want a stable read for the visibility multi-select.
+  const adminClient = createAdminClient()
+
+  const [products, containers, quantities, truckers] = await Promise.all([
     supabase
       .from('product_names')
       .select('id, name')
@@ -22,11 +28,29 @@ export default async function NewLoadPage() {
       .select('id, name')
       .is('deleted_at', null)
       .order('name', { ascending: true }),
+    // Pool of truckers eligible to be invited: not archived, and currently
+    // sign-in-able (active or blocked, never inactive). The form filters
+    // this pool further by truck_type at render time.
+    adminClient
+      .from('truckers')
+      .select('id, phone_e164, full_name, truck_type, status')
+      .is('archived_at', null)
+      .in('status', ['active', 'blocked'])
+      .order('full_name', { ascending: true, nullsFirst: false }),
   ])
 
   if (products.error) throw new Error(products.error.message)
   if (containers.error) throw new Error(containers.error.message)
   if (quantities.error) throw new Error(quantities.error.message)
+  if (truckers.error) throw new Error(truckers.error.message)
+
+  const truckerPool: EligibleTrucker[] = (truckers.data ?? []).map((t) => ({
+    id: t.id,
+    phone_e164: t.phone_e164,
+    full_name: t.full_name,
+    truck_type: t.truck_type as TruckType,
+    status: t.status as TruckerStatus,
+  }))
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -46,6 +70,7 @@ export default async function NewLoadPage() {
           productOptions={(products.data ?? []) as LookupOption[]}
           containerOptions={(containers.data ?? []) as LookupOption[]}
           quantityUnitOptions={(quantities.data ?? []) as LookupOption[]}
+          truckerPool={truckerPool}
         />
       </div>
     </div>

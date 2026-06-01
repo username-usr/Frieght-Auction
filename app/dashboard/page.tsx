@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
+import { getOperatorContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { LoadsTable, type LoadListRow } from '@/components/loads/loads-table'
 import { PostedToast } from '@/components/loads/posted-toast'
@@ -48,6 +49,8 @@ export default async function LoadsPage({
     ? (params.status as FilterValue)
     : 'open'
 
+  const { operator, isAdmin } = await getOperatorContext()
+
   const supabase = await createClient()
   let query = supabase
     .from('loads')
@@ -61,6 +64,16 @@ export default async function LoadsPage({
 
   if (status !== 'all') {
     query = query.eq('status', status)
+  }
+
+  // Zone-based visibility. Admins and unzoned operators see all loads; a
+  // zoned operator only sees loads in their zone OR loads with no zone
+  // (the wildcard). The OR string-builder syntax matches PostgREST's filter
+  // format — zone_id values come from the operator's own row, no SQL
+  // injection concern.
+  const viewerZoneId = operator?.zone_id ?? null
+  if (!isAdmin && viewerZoneId != null) {
+    query = query.or(`zone_id.eq.${viewerZoneId},zone_id.is.null`)
   }
 
   const { data, error } = await query
