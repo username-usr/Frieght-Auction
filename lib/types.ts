@@ -29,7 +29,7 @@ export type MessageStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
 export type WeightUnit = 'kg' | 'liters'
 
 // Shape of a single row from any of the admin-managed lookup tables
-// (product_names, container_types, quantity_units). Used by dropdowns
+// (product_names, container_types, quantity_units, zones). Used by dropdowns
 // across the new-load form and the /dashboard/admin UI.
 export type LookupOption = {
   id: string
@@ -41,6 +41,8 @@ export type Operator = {
   email: string
   full_name: string
   role: OperatorRole
+  zone_id: string | null
+  archived_at: string | null
   created_at: string
   updated_at: string
 }
@@ -53,20 +55,33 @@ export type Trucker = {
   home_base_city: string | null
   status: TruckerStatus
   onboarding_state: Record<string, unknown>
+  archived_at: string | null
   created_at: string
   updated_at: string
 }
 
+// Admin-managed lookup of regional zones (migration 0014). Soft-delete via
+// deleted_at; rows with deleted_at IS NULL are the "active" set surfaced in
+// dropdowns and the admin list.
+export type Zone = {
+  id: string
+  name: string
+  created_at: string
+  deleted_at: string | null
+}
+
 export type Load = {
   id: string
-  origin_city: string
-  destination_city: string
+  reference_code: string
+  origin_address: string
+  destination_address: string
   truck_type_required: TruckType
   pickup_deadline: string
   reference_price_paise: number | null
   notes: string | null
   status: LoadStatus
   posted_by: string
+  zone_id: string | null
   created_at: string
   updated_at: string
 }
@@ -89,6 +104,14 @@ export type LoadItem = {
   quantity_unit_id: string
   weight_value: number
   weight_unit: WeightUnit
+  created_at: string
+}
+
+// Per-load whitelist of truckers that may see the load (migration 0015).
+// Composite primary key (load_id, trucker_id); no surrogate id column.
+export type LoadTruckerVisibility = {
+  load_id: string
+  trucker_id: string
   created_at: string
 }
 
