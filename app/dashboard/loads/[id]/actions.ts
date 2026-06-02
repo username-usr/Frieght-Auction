@@ -1,5 +1,7 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
 export type AwardErrorCode =
@@ -148,4 +150,79 @@ function mapAwardError(message: string): AwardResult {
     error: 'Something went wrong.',
     errorCode: 'UNKNOWN',
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// Lifecycle: mark a load completed and reverse it.
+//
+// Cancellation lives in cancel-action.ts because it predates this file and
+// wraps an existing Postgres function. Award uses the RPC pattern above.
+// Complete/reopen are simpler — guarded UPDATEs are enough.
+//
+// Auth model: the authenticated client confirms the caller is a provisioned,
+// non-archived operator; the actual write goes through the admin client so
+// RLS policy nuances on loads don't fight us. The .eq('status', …) on each
+// UPDATE doubles as a concurrency guard.
+// ---------------------------------------------------------------------------
+
+async function requireOperator(): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated.')
+
+  const { data: operator, error } = await supabase
+    .from('operators')
+    .select('id')
+    .eq('id', user.id)
+    .is('archived_at', null)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!operator) throw new Error('Operator role required.')
+  return operator as { id: string }
+}
+
+export async function completeLoadAction(loadId: string): Promise<void> {
+  await requireOperator()
+  if (!loadId) throw new Error('loadId is required.')
+
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', loadId)
+    // Only awarded loads can be completed. If another tab has already
+    // cancelled or completed this load the UPDATE matches zero rows and
+    // we surface no error — the next page render will reflect the actual
+    // state.
+    .eq('status', 'awarded')
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/loads')
+  revalidatePath(`/dashboard/loads/${loadId}`)
+}
+
+export async function reopenLoadAction(loadId: string): Promise<void> {
+  await requireOperator()
+  if (!loadId) throw new Error('loadId is required.')
+
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      status: 'awarded',
+      completed_at: null,
+    })
+    .eq('id', loadId)
+    // Mirror of the complete guard: only completed loads can be reopened.
+    .eq('status', 'completed')
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/loads')
+  revalidatePath(`/dashboard/loads/${loadId}`)
 }

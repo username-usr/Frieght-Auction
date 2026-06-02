@@ -82,6 +82,7 @@ export type Load = {
   status: LoadStatus
   posted_by: string
   zone_id: string | null
+  completed_at: string | null
   created_at: string
   updated_at: string
 }

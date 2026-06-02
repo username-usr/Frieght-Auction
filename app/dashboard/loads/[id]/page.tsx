@@ -5,6 +5,8 @@ import {
   type BidRowData,
 } from '@/components/loads/bids-table-realtime'
 import { CancelLoadButton } from '@/components/loads/cancel-load-button'
+import { MarkCompletedButton } from './mark-completed-button'
+import { ReopenLoadButton } from './reopen-load-button'
 import { getOperatorContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -180,6 +182,12 @@ export default async function LoadDetailPage({
                 loadId={load.id}
                 activeBidCount={activeBidCount}
               />
+            ) : null}
+            {load.status === 'awarded' ? (
+              <MarkCompletedButton loadId={load.id} />
+            ) : null}
+            {load.status === 'completed' ? (
+              <ReopenLoadButton loadId={load.id} />
             ) : null}
           </div>
         </div>
