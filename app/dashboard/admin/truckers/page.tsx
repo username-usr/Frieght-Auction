@@ -8,6 +8,7 @@ import {
   suspendTruckerAction,
   unarchiveTruckerAction,
 } from './actions'
+import { ResetPasswordButton } from './reset-password-button'
 
 type TruckerRow = {
   id: string
@@ -168,6 +169,10 @@ function RowActions({
       >
         Edit
       </Link>
+      <ResetPasswordButton
+        truckerId={trucker.id}
+        truckerPhone={trucker.phone_e164}
+      />
       {variant === 'active' ? (
         <form action={suspendTruckerAction.bind(null, trucker.id)}>
           <button

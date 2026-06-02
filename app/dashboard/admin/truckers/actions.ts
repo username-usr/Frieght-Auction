@@ -208,3 +208,26 @@ export async function unarchiveTruckerAction(id: string): Promise<void> {
 
   revalidatePath('/dashboard/admin/truckers')
 }
+
+export async function resetTruckerPasswordAction(id: string): Promise<void> {
+  await requireAdmin()
+  if (!id) throw new Error('id is required.')
+
+  const supabase = createAdminClient()
+  // Reset the trucker to first-login state. Clearing onboarding_state
+  // ensures the password-set flow appears on next login; clearing
+  // password_hash means the old password is permanently invalidated.
+  // We only operate on non-archived truckers — archived accounts must
+  // be unarchived first.
+  const { error } = await supabase
+    .from('truckers')
+    .update({
+      password_hash: null,
+      onboarding_state: {},
+    })
+    .eq('id', id)
+    .is('archived_at', null)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/admin/truckers')
+}
