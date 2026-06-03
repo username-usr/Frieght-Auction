@@ -17,7 +17,7 @@ const TRUCK_TYPES: { value: TruckType; label: string }[] = [
 ]
 
 const FIELD =
-  'mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-500 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50'
+  'mt-1 block w-full rounded-md border-2 border-slate-400 px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-500 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50'
 const LABEL = 'block text-sm font-medium text-slate-700'
 const ERROR_TXT = 'mt-1 text-xs text-red-700'
 
@@ -98,7 +98,7 @@ export function EditTruckerForm({
 
       <div>
         <label htmlFor="trucker_truck_type" className={LABEL}>
-          Truck type
+          Truck type <span className="text-red-600">*</span>
         </label>
         <select
           id="trucker_truck_type"
@@ -114,6 +114,7 @@ export function EditTruckerForm({
             </option>
           ))}
         </select>
+        <p className="mt-1 text-xs text-slate-500">Required</p>
       </div>
 
       <div className="flex items-center gap-3 border-t border-slate-200 pt-4">

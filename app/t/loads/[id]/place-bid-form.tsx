@@ -53,7 +53,7 @@ export function PlaceBidForm({
           htmlFor="bid-amount"
           className="block text-sm font-medium text-slate-700"
         >
-          Your bid (₹)
+          Your bid (₹) <span className="text-red-600">*</span>
         </label>
         <input
           id="bid-amount"
@@ -66,10 +66,10 @@ export function PlaceBidForm({
           value={rupees}
           onChange={(e) => setRupees(e.target.value)}
           placeholder="13000"
-          className="mt-1 block h-12 w-full rounded-md border border-slate-300 px-3 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+          className="mt-1 block h-12 w-full rounded-md border-2 border-slate-400 px-3 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
         />
         <p className="mt-2 text-xs text-slate-500">
-          Whole rupees only. Lowest bid wins when the load is awarded.
+          Required. Whole rupees only. Lowest bid wins when the load is awarded.
         </p>
       </div>
       {disabledReason ? (

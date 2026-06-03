@@ -96,7 +96,7 @@ export function CancelLoadButton({ loadId, activeBidCount }: Props) {
                 disabled={isPending}
                 placeholder="e.g. Customer cancelled, no longer needed"
                 rows={3}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-1 w-full rounded-md border-2 border-slate-400 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </label>
 

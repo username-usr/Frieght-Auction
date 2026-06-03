@@ -28,7 +28,9 @@ export default async function AdminLayout({
       <div className="border-b border-slate-200">
         <AdminSubNav />
       </div>
-      {children}
+      <div className="rounded-lg bg-blue-50 p-6">
+        {children}
+      </div>
     </div>
   )
 }
