@@ -21,9 +21,12 @@ const FIELD =
 const LABEL = 'block text-sm font-medium text-slate-700'
 const ERROR_TXT = 'mt-1 text-xs text-red-700'
 
+const PHONE_RE = /^\+\d{10,15}$/
+
 type Props = {
   id: string
   phoneE164: string
+  secondaryPhone: string | null
   fullName: string | null
   truckType: TruckType
 }
@@ -31,26 +34,48 @@ type Props = {
 export function EditTruckerForm({
   id,
   phoneE164,
+  secondaryPhone: initialSecondaryPhone,
   fullName: initialFullName,
   truckType: initialTruckType,
 }: Props) {
   const router = useRouter()
   const [fullName, setFullName] = useState(initialFullName ?? '')
+  const [secondaryPhone, setSecondaryPhone] = useState(
+    initialSecondaryPhone ?? ''
+  )
   const [truckType, setTruckType] = useState<TruckType>(initialTruckType)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [secondaryPhoneError, setSecondaryPhoneError] = useState<string | null>(
+    null
+  )
   const [isPending, startTransition] = useTransition()
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
     if (fullName.trim().length > 200) {
       setNameError('Must be 200 characters or fewer.')
       return
     }
     setNameError(null)
 
+    const sp = secondaryPhone.trim()
+    if (sp) {
+      if (!PHONE_RE.test(sp)) {
+        setSecondaryPhoneError('Use E.164 format (e.g. +919876543210).')
+        return
+      }
+      if (sp === phoneE164) {
+        setSecondaryPhoneError('Must be different from primary phone.')
+        return
+      }
+    }
+    setSecondaryPhoneError(null)
+
     startTransition(async () => {
       try {
         await updateTruckerAction(id, {
+          secondary_phone: sp || null,
           full_name: fullName.trim() || null,
           truck_type: truckType,
         })
@@ -77,6 +102,31 @@ export function EditTruckerForm({
           value={phoneE164}
           className={`${FIELD} cursor-not-allowed bg-slate-50 font-mono`}
         />
+      </div>
+
+      <div>
+        <label htmlFor="trucker_secondary_phone" className={LABEL}>
+          Secondary phone{' '}
+          <span className="font-normal text-slate-500">— optional</span>
+        </label>
+        <input
+          id="trucker_secondary_phone"
+          name="secondary_phone"
+          type="tel"
+          autoComplete="off"
+          disabled={isPending}
+          value={secondaryPhone}
+          onChange={(e) => setSecondaryPhone(e.target.value)}
+          placeholder="+919876543210"
+          className={`${FIELD} font-mono`}
+        />
+        {secondaryPhoneError ? (
+          <p className={ERROR_TXT}>{secondaryPhoneError}</p>
+        ) : (
+          <p className="mt-1 text-xs text-slate-500">
+            Alternate contact number. Must differ from primary.
+          </p>
+        )}
       </div>
 
       <div>

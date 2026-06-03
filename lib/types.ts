@@ -50,6 +50,7 @@ export type Operator = {
 export type Trucker = {
   id: string
   phone_e164: string
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
   home_base_city: string | null
@@ -83,6 +84,10 @@ export type Load = {
   posted_by: string
   zone_id: string | null
   completed_at: string | null
+  invoice_number: string | null
+  truck_number: string | null
+  driver_name: string | null
+  driver_phone: string | null
   created_at: string
   updated_at: string
 }

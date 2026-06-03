@@ -49,7 +49,7 @@ export default async function AdminLoadsPage() {
       </p>
 
       <AdminSection
-        title="Product Names"
+        title="Stock item names"
         placeholder="e.g. Sugar"
         rows={(products.data ?? []) as LookupRow[]}
         addAction={addProductNameAction}

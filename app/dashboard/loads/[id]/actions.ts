@@ -226,3 +226,59 @@ export async function reopenLoadAction(loadId: string): Promise<void> {
   revalidatePath('/dashboard/loads')
   revalidatePath(`/dashboard/loads/${loadId}`)
 }
+
+// ---------------------------------------------------------------------------
+// Post-award shipment details (migration 0017). Captured by the operator
+// between award and completion; recorded for downstream reference. Editing
+// is gated to 'awarded' loads — once completed, the row is frozen by the
+// .eq('status', 'awarded') filter below.
+// ---------------------------------------------------------------------------
+
+export type ShipmentDetailsInput = {
+  invoice_number: string | null
+  truck_number: string | null
+  driver_name: string | null
+  driver_phone: string | null
+}
+
+const TRUCK_NUMBER_RE = /^[A-Z0-9]+$/
+
+export async function editShipmentDetailsAction(
+  loadId: string,
+  input: ShipmentDetailsInput
+): Promise<void> {
+  await requireOperator()
+  if (!loadId) throw new Error('loadId is required.')
+
+  // Trim, uppercase truck number, treat empty strings as null. The DB has
+  // a matching CHECK constraint (loads_truck_number_alphanumeric) so a
+  // malformed value would be rejected even if this guard ever changes.
+  const invoiceNumber = input.invoice_number?.trim() || null
+  const truckNumber = input.truck_number?.trim().toUpperCase() || null
+  const driverName = input.driver_name?.trim() || null
+  const driverPhone = input.driver_phone?.trim() || null
+
+  if (truckNumber && !TRUCK_NUMBER_RE.test(truckNumber)) {
+    throw new Error(
+      'Truck number must be alphanumeric only (no spaces or special characters).'
+    )
+  }
+
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      invoice_number: invoiceNumber,
+      truck_number: truckNumber,
+      driver_name: driverName,
+      driver_phone: driverPhone,
+    })
+    .eq('id', loadId)
+    // Only awarded loads accept edits — completed ones are frozen, mirroring
+    // the existing complete/reopen lifecycle guards.
+    .eq('status', 'awarded')
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/loads')
+  revalidatePath(`/dashboard/loads/${loadId}`)
+}

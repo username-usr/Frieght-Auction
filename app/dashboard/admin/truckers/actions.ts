@@ -31,6 +31,7 @@ const PHONE_RE = /^\+\d{10,15}$/
 export type TruckerRow = {
   id: string
   phone_e164: string
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
   status: 'active' | 'inactive' | 'blocked'
@@ -53,6 +54,7 @@ function validateTruckType(value: string): asserts value is TruckType {
 
 export type AddTruckerInput = {
   phone_e164: string
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
 }
@@ -65,6 +67,18 @@ export async function addTruckerAction(
   const phone = input.phone_e164.trim()
   if (!PHONE_RE.test(phone)) {
     throw new Error('Phone must be in E.164 format (e.g. +919876543210).')
+  }
+  // Secondary phone is optional. When provided it must be the same E.164
+  // shape and must differ from the primary — same number on both fields
+  // would be confusing and offers no real fallback.
+  const secondaryPhone = input.secondary_phone?.trim() || null
+  if (secondaryPhone && !PHONE_RE.test(secondaryPhone)) {
+    throw new Error(
+      'Secondary phone must be in E.164 format (e.g. +919876543210).'
+    )
+  }
+  if (secondaryPhone && secondaryPhone === phone) {
+    throw new Error('Secondary phone must be different from primary phone.')
   }
   validateTruckType(input.truck_type)
   const fullName = input.full_name?.trim() || null
@@ -91,6 +105,7 @@ export async function addTruckerAction(
     .from('truckers')
     .insert({
       phone_e164: phone,
+      secondary_phone: secondaryPhone,
       full_name: fullName,
       truck_type: input.truck_type,
       status: 'active',
@@ -98,7 +113,9 @@ export async function addTruckerAction(
       onboarding_state: {},
       password_hash: null,
     })
-    .select('id, phone_e164, full_name, truck_type, status, archived_at, created_at')
+    .select(
+      'id, phone_e164, secondary_phone, full_name, truck_type, status, archived_at, created_at'
+    )
     .single()
   if (error) throw new Error(error.message)
 
@@ -107,6 +124,7 @@ export async function addTruckerAction(
 }
 
 export type UpdateTruckerInput = {
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
 }
@@ -124,19 +142,44 @@ export async function updateTruckerAction(
     throw new Error('Full name must be 200 characters or fewer.')
   }
 
+  const secondaryPhone = input.secondary_phone?.trim() || null
+  if (secondaryPhone && !PHONE_RE.test(secondaryPhone)) {
+    throw new Error(
+      'Secondary phone must be in E.164 format (e.g. +919876543210).'
+    )
+  }
+
   const supabase = createAdminClient()
 
-  // Only update full_name and truck_type. phone, status, archived_at,
-  // onboarding_state, and password_hash are managed via dedicated actions
-  // (suspend / archive / set-password) or are immutable (phone).
+  // Secondary-vs-primary collision check uses the row's existing phone
+  // (primary is immutable, so we can lock against it without re-fetching
+  // the form's primary copy from the client).
+  if (secondaryPhone) {
+    const { data: existing, error: lookupErr } = await supabase
+      .from('truckers')
+      .select('phone_e164')
+      .eq('id', id)
+      .maybeSingle()
+    if (lookupErr) throw new Error(lookupErr.message)
+    if (existing && existing.phone_e164 === secondaryPhone) {
+      throw new Error('Secondary phone must be different from primary phone.')
+    }
+  }
+
+  // Only update full_name, truck_type, and secondary_phone. phone, status,
+  // archived_at, onboarding_state, and password_hash are managed via
+  // dedicated actions or are immutable.
   const { data, error } = await supabase
     .from('truckers')
     .update({
       full_name: fullName,
       truck_type: input.truck_type,
+      secondary_phone: secondaryPhone,
     })
     .eq('id', id)
-    .select('id, phone_e164, full_name, truck_type, status, archived_at, created_at')
+    .select(
+      'id, phone_e164, secondary_phone, full_name, truck_type, status, archived_at, created_at'
+    )
     .single()
   if (error) throw new Error(error.message)
 

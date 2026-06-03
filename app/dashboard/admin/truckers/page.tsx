@@ -13,6 +13,7 @@ import { ResetPasswordButton } from './reset-password-button'
 type TruckerRow = {
   id: string
   phone_e164: string
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
   status: TruckerStatus
@@ -28,7 +29,7 @@ export default async function TruckersAdminPage() {
   const { data, error } = await supabase
     .from('truckers')
     .select(
-      'id, phone_e164, full_name, truck_type, status, archived_at, created_at'
+      'id, phone_e164, secondary_phone, full_name, truck_type, status, archived_at, created_at'
     )
     .order('created_at', { ascending: false })
 
@@ -119,6 +120,11 @@ function Section({
               <tr key={t.id}>
                 <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-900">
                   {t.phone_e164}
+                  {t.secondary_phone ? (
+                    <span className="ml-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                      +{t.secondary_phone}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-4 py-3 text-slate-900">
                   {t.full_name ?? '—'}

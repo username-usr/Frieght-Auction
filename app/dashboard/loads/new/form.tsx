@@ -206,7 +206,7 @@ export function NewLoadForm({
       }
     }
 
-    if (items.length === 0) h.items = 'Add at least one product'
+    if (items.length === 0) h.items = 'Add at least one stock item'
 
     if (selectedTruckerIds.size === 0) {
       h.truckers = 'Select at least one trucker.'
@@ -386,7 +386,7 @@ export function NewLoadForm({
 
       <div className="space-y-4 border-t border-slate-200 pt-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Products</h2>
+          <h2 className="text-sm font-semibold text-slate-900">Stock items</h2>
           <div className="text-xs text-slate-600">
             Total:{' '}
             <span className="font-medium text-slate-900">
@@ -424,7 +424,7 @@ export function NewLoadForm({
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div>
                   <label htmlFor={`${idBase}-product`} className={LABEL}>
-                    Product <span className="text-red-600">*</span>
+                    Stock item <span className="text-red-600">*</span>
                   </label>
                   <select
                     id={`${idBase}-product`}
@@ -436,7 +436,7 @@ export function NewLoadForm({
                     className={FIELD}
                   >
                     <option value="" disabled>
-                      Select a product…
+                      Select a stock item…
                     </option>
                     {productOptions.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -583,7 +583,7 @@ export function NewLoadForm({
           onClick={addItem}
           className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          + Add product
+          + Add stock item
         </button>
         {errors.items ? <p className={ERROR}>{errors.items}</p> : null}
       </div>

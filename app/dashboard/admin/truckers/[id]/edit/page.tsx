@@ -8,6 +8,7 @@ import { EditTruckerForm } from './form'
 type TruckerDetail = {
   id: string
   phone_e164: string
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
   status: TruckerStatus
@@ -31,7 +32,7 @@ export default async function EditTruckerPage({
   const { data, error } = await supabase
     .from('truckers')
     .select(
-      'id, phone_e164, full_name, truck_type, status, archived_at, created_at'
+      'id, phone_e164, secondary_phone, full_name, truck_type, status, archived_at, created_at'
     )
     .eq('id', id)
     .maybeSingle()
@@ -95,6 +96,7 @@ export default async function EditTruckerPage({
         <EditTruckerForm
           id={trucker.id}
           phoneE164={trucker.phone_e164}
+          secondaryPhone={trucker.secondary_phone}
           fullName={trucker.full_name}
           truckType={trucker.truck_type}
         />

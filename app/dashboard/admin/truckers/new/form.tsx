@@ -27,6 +27,7 @@ const ERROR_TXT = 'mt-1 text-xs text-red-700'
 
 type Errors = Partial<{
   phone_e164: string
+  secondary_phone: string
   full_name: string
   truck_type: string
 }>
@@ -34,6 +35,7 @@ type Errors = Partial<{
 export function NewTruckerForm() {
   const router = useRouter()
   const [phone, setPhone] = useState('+91')
+  const [secondaryPhone, setSecondaryPhone] = useState('')
   const [fullName, setFullName] = useState('')
   const [truckType, setTruckType] = useState<TruckType>('open')
   const [errors, setErrors] = useState<Errors>({})
@@ -45,6 +47,14 @@ export function NewTruckerForm() {
     if (!p) e.phone_e164 = 'Required'
     else if (!PHONE_RE.test(p)) {
       e.phone_e164 = 'Use E.164 format (e.g. +919876543210).'
+    }
+    const sp = secondaryPhone.trim()
+    if (sp) {
+      if (!PHONE_RE.test(sp)) {
+        e.secondary_phone = 'Use E.164 format (e.g. +919876543210).'
+      } else if (sp === p) {
+        e.secondary_phone = 'Must be different from primary phone.'
+      }
     }
     if (fullName.trim().length > 200) {
       e.full_name = 'Must be 200 characters or fewer.'
@@ -62,6 +72,7 @@ export function NewTruckerForm() {
       try {
         await addTruckerAction({
           phone_e164: phone.trim(),
+          secondary_phone: secondaryPhone.trim() || null,
           full_name: fullName.trim() || null,
           truck_type: truckType,
         })
@@ -96,6 +107,31 @@ export function NewTruckerForm() {
           <p className="mt-1 text-xs text-slate-500">
             Required. Starts with + and country code. This is the trucker&apos;s
             login identifier — choose carefully.
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="trucker_secondary_phone" className={LABEL}>
+          Secondary phone{' '}
+          <span className="font-normal text-slate-500">— optional</span>
+        </label>
+        <input
+          id="trucker_secondary_phone"
+          name="secondary_phone"
+          type="tel"
+          autoComplete="off"
+          disabled={isPending}
+          value={secondaryPhone}
+          onChange={(e) => setSecondaryPhone(e.target.value)}
+          placeholder="+919876543210"
+          className={`${FIELD} font-mono`}
+        />
+        {errors.secondary_phone ? (
+          <p className={ERROR_TXT}>{errors.secondary_phone}</p>
+        ) : (
+          <p className="mt-1 text-xs text-slate-500">
+            Alternate contact number. Must differ from primary.
           </p>
         )}
       </div>

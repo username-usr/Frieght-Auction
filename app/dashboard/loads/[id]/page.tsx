@@ -7,6 +7,7 @@ import {
 import { CancelLoadButton } from '@/components/loads/cancel-load-button'
 import { MarkCompletedButton } from './mark-completed-button'
 import { ReopenLoadButton } from './reopen-load-button'
+import { ShipmentDetailsForm } from './shipment-details-form'
 import { getOperatorContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -42,6 +43,10 @@ type LoadDetailRow = {
   zone_id: string | null
   cancelled_at: string | null
   cancellation_reason: string | null
+  invoice_number: string | null
+  truck_number: string | null
+  driver_name: string | null
+  driver_phone: string | null
   posted_by_operator: { full_name: string } | null
   cancelled_by_operator: { full_name: string } | null
   items: LoadItemRow[]
@@ -63,6 +68,7 @@ const UUID_RE =
 const LOAD_SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
        pickup_deadline, reference_price_paise, notes, status, created_at,
        posted_by, zone_id, cancelled_at, cancellation_reason,
+       invoice_number, truck_number, driver_name, driver_phone,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
        cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name),
        items:load_items(
@@ -282,7 +288,7 @@ export default async function LoadDetailPage({
 
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">
-          Products ({items.length})
+          Stock items ({items.length})
         </h3>
         {items.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">No items on this load.</p>
@@ -291,7 +297,7 @@ export default async function LoadDetailPage({
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
                 <tr>
-                  <th className="px-4 py-2 text-left">Product</th>
+                  <th className="px-4 py-2 text-left">Stock item</th>
                   <th className="px-4 py-2 text-left">Container</th>
                   <th className="px-4 py-2 text-right">Quantity</th>
                   <th className="px-4 py-2 text-right">Weight</th>
@@ -339,6 +345,66 @@ export default async function LoadDetailPage({
           </div>
         )}
       </section>
+
+      {load.status === 'awarded' || load.status === 'completed' ? (
+        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-900">
+            Shipment details
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            {load.status === 'awarded'
+              ? 'Captured by the operator before the load is marked completed.'
+              : 'Captured before the load was marked completed. Edits are locked.'}
+          </p>
+
+          {load.status === 'awarded' ? (
+            <div className="mt-4">
+              <ShipmentDetailsForm
+                loadId={load.id}
+                initialInvoiceNumber={load.invoice_number}
+                initialTruckNumber={load.truck_number}
+                initialDriverName={load.driver_name}
+                initialDriverPhone={load.driver_phone}
+              />
+            </div>
+          ) : (
+            <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Invoice number
+                </dt>
+                <dd className="mt-1 text-sm text-slate-900">
+                  {load.invoice_number ?? '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Truck number
+                </dt>
+                <dd className="mt-1 font-mono text-sm uppercase tracking-wider text-slate-900">
+                  {load.truck_number ?? '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Driver name
+                </dt>
+                <dd className="mt-1 text-sm text-slate-900">
+                  {load.driver_name ?? '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Driver phone
+                </dt>
+                <dd className="mt-1 font-mono text-sm text-slate-900">
+                  {load.driver_phone ?? '—'}
+                </dd>
+              </div>
+            </dl>
+          )}
+        </section>
+      ) : null}
 
       {bidsError ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-900">
