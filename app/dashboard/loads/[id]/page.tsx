@@ -5,9 +5,9 @@ import {
   type BidRowData,
 } from '@/components/loads/bids-table-realtime'
 import { CancelLoadButton } from '@/components/loads/cancel-load-button'
+import { CancelAwardButton } from './cancel-award-button'
 import { MarkCompletedButton } from './mark-completed-button'
 import { ReopenLoadButton } from './reopen-load-button'
-import { ShipmentDetailsForm } from './shipment-details-form'
 import { getOperatorContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -49,6 +49,9 @@ type LoadDetailRow = {
   zone_id: string | null
   cancelled_at: string | null
   cancellation_reason: string | null
+  accepted_at: string | null
+  declined_at: string | null
+  decline_reason: string | null
   invoice_number: string | null
   truck_number: string | null
   driver_name: string | null
@@ -61,7 +64,9 @@ type LoadDetailRow = {
 
 const LOAD_STATUS_BADGE: Record<LoadStatus, string> = {
   open: 'bg-blue-100 text-blue-900',
-  awarded: 'bg-green-100 text-green-900',
+  awarded: 'bg-amber-100 text-amber-900',
+  accepted: 'bg-green-100 text-green-900',
+  declined: 'bg-red-100 text-red-900',
   cancelled: 'bg-slate-200 text-slate-700',
   completed: 'bg-slate-200 text-slate-700',
 }
@@ -75,6 +80,7 @@ const UUID_RE =
 const LOAD_SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
        pickup_deadline, reference_price_paise, notes, status, created_at,
        posted_by, zone_id, cancelled_at, cancellation_reason,
+       accepted_at, declined_at, decline_reason,
        invoice_number, truck_number, driver_name, driver_phone,
        posted_by_operator:operators!loads_posted_by_fkey(full_name),
        cancelled_by_operator:operators!loads_cancelled_by_fkey(full_name),
@@ -209,6 +215,9 @@ export default async function LoadDetailPage({
               />
             ) : null}
             {load.status === 'awarded' ? (
+              <CancelAwardButton loadId={load.id} />
+            ) : null}
+            {load.status === 'accepted' ? (
               <MarkCompletedButton loadId={load.id} />
             ) : null}
             {load.status === 'completed' ? (
@@ -253,6 +262,42 @@ export default async function LoadDetailPage({
               : ''}
             .
           </p>
+        ) : null}
+
+        {/* Lifecycle banners: 'awarded' is amber pending, 'accepted' is
+          green confirmed, 'declined' is red with the trucker's reason. */}
+        {load.status === 'awarded' ? (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">Awaiting trucker acceptance</p>
+            <p className="mt-1 text-xs">
+              The winning trucker will accept or decline this award. You can
+              cancel the award above to reopen bidding.
+            </p>
+          </div>
+        ) : null}
+        {load.status === 'accepted' && load.accepted_at ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Trucker accepted at {formatAbsoluteIST(load.accepted_at)}.
+          </p>
+        ) : null}
+        {load.status === 'declined' ? (
+          <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            <p className="font-medium">Trucker declined this award</p>
+            {load.declined_at ? (
+              <p className="mt-1 text-xs">
+                On {formatAbsoluteIST(load.declined_at)}
+              </p>
+            ) : null}
+            {load.decline_reason ? (
+              <p className="mt-2 whitespace-pre-wrap text-xs text-red-800">
+                <span className="font-medium">Reason:</span>{' '}
+                {load.decline_reason}
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs">
+              Pick another bid below to re-award the load.
+            </p>
+          </div>
         ) : null}
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -389,63 +434,52 @@ export default async function LoadDetailPage({
         )}
       </section>
 
-      {load.status === 'awarded' || load.status === 'completed' ? (
+      {/* Shipment details: trucker-owned now. Operator sees read-only.
+        Section is rendered once the load is 'accepted' (or later); before
+        acceptance the trucker hasn't had a chance to fill these in. */}
+      {load.status === 'accepted' || load.status === 'completed' ? (
         <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-900">
             Shipment details
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            {load.status === 'awarded'
-              ? 'Captured by the operator before the load is marked completed.'
-              : 'Captured before the load was marked completed. Edits are locked.'}
+            Filled in by the trucker. Invoice number is operator-managed
+            (no editor yet).
           </p>
-
-          {load.status === 'awarded' ? (
-            <div className="mt-4">
-              <ShipmentDetailsForm
-                loadId={load.id}
-                initialInvoiceNumber={load.invoice_number}
-                initialTruckNumber={load.truck_number}
-                initialDriverName={load.driver_name}
-                initialDriverPhone={load.driver_phone}
-              />
+          <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Invoice number
+              </dt>
+              <dd className="mt-1 text-sm text-slate-900">
+                {load.invoice_number ?? '—'}
+              </dd>
             </div>
-          ) : (
-            <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  Invoice number
-                </dt>
-                <dd className="mt-1 text-sm text-slate-900">
-                  {load.invoice_number ?? '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  Truck number
-                </dt>
-                <dd className="mt-1 font-mono text-sm uppercase tracking-wider text-slate-900">
-                  {load.truck_number ?? '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  Driver name
-                </dt>
-                <dd className="mt-1 text-sm text-slate-900">
-                  {load.driver_name ?? '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  Driver phone
-                </dt>
-                <dd className="mt-1 font-mono text-sm text-slate-900">
-                  {load.driver_phone ?? '—'}
-                </dd>
-              </div>
-            </dl>
-          )}
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Truck number
+              </dt>
+              <dd className="mt-1 font-mono text-sm uppercase tracking-wider text-slate-900">
+                {load.truck_number ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Driver name
+              </dt>
+              <dd className="mt-1 text-sm text-slate-900">
+                {load.driver_name ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Driver phone
+              </dt>
+              <dd className="mt-1 font-mono text-sm text-slate-900">
+                {load.driver_phone ?? '—'}
+              </dd>
+            </div>
+          </dl>
         </section>
       ) : null}
 

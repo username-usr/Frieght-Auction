@@ -30,6 +30,7 @@ const STATUS_BADGE: Record<BidStatus, string> = {
   won: 'bg-green-100 text-green-900',
   lost: 'bg-slate-200 text-slate-700',
   withdrawn: 'bg-slate-200 text-slate-700',
+  declined: 'bg-red-100 text-red-900',
 }
 
 type Props = {

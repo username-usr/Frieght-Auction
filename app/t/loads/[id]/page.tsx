@@ -8,7 +8,9 @@ import {
 } from '@/lib/format'
 import { requireTrucker } from '@/lib/trucker'
 import type { LoadStatus, TruckType, BidStatus } from '@/lib/types'
+import { AcceptAwardForm } from './accept-award-form'
 import { PlaceBidForm } from './place-bid-form'
+import { ShipmentDetailsForm } from './shipment-details-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +42,13 @@ type LoadDetail = {
   notes: string | null
   status: LoadStatus
   created_at: string
+  accepted_at: string | null
+  declined_at: string | null
+  decline_reason: string | null
+  invoice_number: string | null
+  truck_number: string | null
+  driver_name: string | null
+  driver_phone: string | null
   items: LoadItem[]
   destinations: AdditionalDestinationRow[]
 }
@@ -57,6 +66,8 @@ const UUID_RE =
 
 const LOAD_SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
            pickup_deadline, reference_price_paise, notes, status, created_at,
+           accepted_at, declined_at, decline_reason,
+           invoice_number, truck_number, driver_name, driver_phone,
            items:load_items(
              id, position, quantity_value, weight_value, weight_unit,
              product:product_names!product_name_id(name),
@@ -74,10 +85,6 @@ export default async function TruckerLoadDetailPage({
   const trucker = await requireTrucker()
   const supabase = createAdminClient()
 
-  // Lookup by UUID or by reference_code (4-char alphanumeric handle from
-  // migration 0015). The trucker portal has fewer internal links than the
-  // operator side, but accepting either form means shared URLs like
-  // /t/loads/A8K2 work too.
   const loadQuery = supabase.from('loads').select(LOAD_SELECT)
   const { data: loadRaw, error: loadError } = await (UUID_RE.test(id)
     ? loadQuery.eq('id', id)
@@ -116,9 +123,6 @@ export default async function TruckerLoadDetailPage({
   const ownAnyBid = bids.find((b) => b.trucker_id === trucker.id)
   const isVisible = visibilityRow != null
 
-  // Gate: a trucker who never bid here AND isn't on the visibility list
-  // should never have reached this page. 404 keeps the URL opaque rather
-  // than leaking "load exists but you can't see it".
   if (!ownAnyBid && !isVisible) {
     notFound()
   }
@@ -139,37 +143,51 @@ export default async function TruckerLoadDetailPage({
     { kg: 0, liters: 0 }
   )
 
-  // Anonymized L1: lowest amount among ACTIVE bids. We deliberately do not
-  // reveal the bidder identity to a trucker — they only see the number.
   const activeAmounts = bids
     .filter((b) => b.status === 'active')
     .map((b) => b.amount_paise)
   const lowBid = activeAmounts.length > 0 ? Math.min(...activeAmounts) : null
 
-  // Pull THIS trucker's own active bid (if any) so we can prefill the form
-  // and switch the button copy to "Update bid".
+  // Bucket the trucker's own bid by status. ownWonBid stays 'won' through
+  // the awarded → accepted → completed lifecycle (accept_award doesn't
+  // touch bid status, only load status). ownDeclinedBid is set only after
+  // decline_award flips the won bid to 'declined'.
   const ownActiveBid =
     bids.find(
       (b) => b.trucker_id === trucker.id && b.status === 'active'
     ) ?? null
-  const ownNonActiveBid =
+  const ownWonBid =
     bids.find(
-      (b) =>
-        b.trucker_id === trucker.id &&
-        (b.status === 'won' || b.status === 'lost' || b.status === 'withdrawn')
+      (b) => b.trucker_id === trucker.id && b.status === 'won'
+    ) ?? null
+  const ownDeclinedBid =
+    bids.find(
+      (b) => b.trucker_id === trucker.id && b.status === 'declined'
+    ) ?? null
+  const ownLostBid =
+    bids.find(
+      (b) => b.trucker_id === trucker.id && b.status === 'lost'
+    ) ?? null
+  const ownWithdrawnBid =
+    bids.find(
+      (b) => b.trucker_id === trucker.id && b.status === 'withdrawn'
     ) ?? null
 
+  const isSuspended = trucker.status === 'blocked'
   const canBid = load.status === 'open'
 
-  // Outcome banner for awarded loads. We only render it when this trucker
-  // has a non-active bid on record — a trucker who never bid on an awarded
-  // load shouldn't be landing here, so showing nothing in that case is fine.
-  const wonBanner =
-    load.status === 'awarded' && ownNonActiveBid?.status === 'won'
-  const lostBanner =
-    load.status === 'awarded' && ownNonActiveBid?.status === 'lost'
-
-  const isSuspended = trucker.status === 'blocked'
+  // Lifecycle state for THIS trucker on THIS load.
+  const pendingAcceptance =
+    ownWonBid != null && load.status === 'awarded'
+  const acceptedByMe = ownWonBid != null && load.status === 'accepted'
+  const completedForMe = ownWonBid != null && load.status === 'completed'
+  const declinedByMe = ownDeclinedBid != null && load.status === 'declined'
+  // Other terminal "bidding closed" states for this trucker.
+  const shutOut =
+    ownLostBid != null &&
+    (load.status === 'awarded' ||
+      load.status === 'accepted' ||
+      load.status === 'completed')
 
   return (
     <div className="space-y-5">
@@ -191,12 +209,46 @@ export default async function TruckerLoadDetailPage({
         </div>
       ) : null}
 
-      {wonBanner ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-900">
-          🎉 You won this load — Pickup by{' '}
-          {formatAbsoluteIST(load.pickup_deadline)}
+      {pendingAcceptance ? (
+        // Awarded but not yet accepted — show the Accept/Decline panel.
+        <AcceptAwardForm loadId={load.id} />
+      ) : acceptedByMe ? (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+          <p className="font-semibold">
+            ✅ You accepted this load
+            {load.accepted_at
+              ? ` on ${formatAbsoluteIST(load.accepted_at)}`
+              : ''}
+          </p>
+          <p className="mt-1 text-xs">
+            Pickup by {formatAbsoluteIST(load.pickup_deadline)}. Fill in your
+            truck and driver details below — they help the operator track
+            the load.
+          </p>
         </div>
-      ) : lostBanner ? (
+      ) : completedForMe ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm text-slate-800">
+          <p className="font-semibold">Load completed.</p>
+          <p className="mt-1 text-xs">
+            The operator marked this load delivered. Details are now locked.
+          </p>
+        </div>
+      ) : declinedByMe ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-semibold">You declined this award</p>
+          {load.declined_at ? (
+            <p className="mt-1 text-xs">
+              On {formatAbsoluteIST(load.declined_at)}
+            </p>
+          ) : null}
+          {load.decline_reason ? (
+            <p className="mt-2 whitespace-pre-wrap text-xs text-red-800">
+              <span className="font-medium">Reason:</span>{' '}
+              {load.decline_reason}
+            </p>
+          ) : null}
+        </div>
+      ) : shutOut ? (
         <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm text-slate-700">
           Bidding closed for this load.
         </div>
@@ -278,6 +330,53 @@ export default async function TruckerLoadDetailPage({
         ) : null}
       </section>
 
+      {/* Shipment details on the trucker side: editable in 'accepted',
+        read-only in 'completed'. Not shown otherwise. */}
+      {acceptedByMe ? (
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-900">
+            Truck & driver details
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Optional. The operator will see what you enter here.
+          </p>
+          <div className="mt-3">
+            <ShipmentDetailsForm
+              loadId={load.id}
+              initialTruckNumber={load.truck_number}
+              initialDriverName={load.driver_name}
+              initialDriverPhone={load.driver_phone}
+            />
+          </div>
+        </section>
+      ) : completedForMe ? (
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-900">
+            Truck & driver details
+          </h2>
+          <dl className="mt-3 grid grid-cols-1 gap-x-3 gap-y-3 text-xs">
+            <div>
+              <dt className="text-slate-500">Truck number</dt>
+              <dd className="mt-0.5 font-mono uppercase tracking-wider text-slate-900">
+                {load.truck_number ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Driver name</dt>
+              <dd className="mt-0.5 text-slate-900">
+                {load.driver_name ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Driver phone</dt>
+              <dd className="mt-0.5 font-mono text-slate-900">
+                {load.driver_phone ?? '—'}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
+
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">
           Stock items ({items.length})
@@ -353,13 +452,36 @@ export default async function TruckerLoadDetailPage({
               {formatINR(ownActiveBid.amount_paise)}
             </span>
           </p>
-        ) : ownNonActiveBid ? (
+        ) : ownWonBid ? (
+          <p className="mt-2 text-xs text-slate-600">
+            Your winning bid:{' '}
+            <span className="font-medium tabular-nums text-slate-900">
+              {formatINR(ownWonBid.amount_paise)}
+            </span>
+          </p>
+        ) : ownDeclinedBid ? (
+          <p className="mt-2 text-xs text-slate-600">
+            Your declined bid was{' '}
+            <span className="font-medium tabular-nums text-slate-900">
+              {formatINR(ownDeclinedBid.amount_paise)}
+            </span>
+            .
+          </p>
+        ) : ownLostBid ? (
           <p className="mt-2 text-xs text-slate-600">
             Your last bid was{' '}
             <span className="font-medium tabular-nums text-slate-900">
-              {formatINR(ownNonActiveBid.amount_paise)}
+              {formatINR(ownLostBid.amount_paise)}
             </span>{' '}
-            ({ownNonActiveBid.status}).
+            (lost).
+          </p>
+        ) : ownWithdrawnBid ? (
+          <p className="mt-2 text-xs text-slate-600">
+            Your last bid was{' '}
+            <span className="font-medium tabular-nums text-slate-900">
+              {formatINR(ownWithdrawnBid.amount_paise)}
+            </span>{' '}
+            (withdrawn).
           </p>
         ) : null}
       </section>
@@ -379,7 +501,11 @@ export default async function TruckerLoadDetailPage({
             />
           </div>
         </section>
-      ) : wonBanner || lostBanner ? null : (
+      ) : pendingAcceptance ||
+        acceptedByMe ||
+        completedForMe ||
+        declinedByMe ||
+        shutOut ? null : (
         <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm text-slate-700">
           This load is no longer open for bidding.
         </div>

@@ -62,7 +62,13 @@ export default async function LoadsPage({
     )
     .order('created_at', { ascending: false })
 
-  if (status !== 'all') {
+  if (status === 'awarded') {
+    // The "Awarded" tab groups the three sub-states (pending acceptance,
+    // accepted, declined) — operators reason about them as one bucket of
+    // "the load is committed to a trucker" with sub-status only changing
+    // the colour and the next action.
+    query = query.in('status', ['awarded', 'accepted', 'declined'])
+  } else if (status !== 'all') {
     query = query.eq('status', status)
   }
 

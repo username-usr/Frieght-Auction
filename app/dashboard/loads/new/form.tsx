@@ -91,6 +91,7 @@ function blankItem(): ItemDraft {
 export type EligibleTrucker = {
   id: string
   phone_e164: string
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
   status: TruckerStatus
@@ -859,7 +860,10 @@ function TruckerCheckbox({
             ) : null}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
-            <span className="font-mono">{trucker.phone_e164}</span>
+            <span className="font-mono">
+              {trucker.phone_e164}
+              {trucker.secondary_phone ? `, ${trucker.secondary_phone}` : ''}
+            </span>
             <span>·</span>
             <span className="capitalize">{trucker.truck_type}</span>
           </div>

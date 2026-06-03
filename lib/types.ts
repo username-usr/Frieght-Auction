@@ -11,8 +11,14 @@ export type TruckType =
   | 'refrigerated'
   | 'other'
 
-export type LoadStatus = 'open' | 'awarded' | 'cancelled' | 'completed'
-export type BidStatus = 'active' | 'won' | 'lost' | 'withdrawn'
+export type LoadStatus =
+  | 'open'
+  | 'awarded'
+  | 'accepted'
+  | 'declined'
+  | 'cancelled'
+  | 'completed'
+export type BidStatus = 'active' | 'won' | 'lost' | 'withdrawn' | 'declined'
 export type DeliveryStatus =
   | 'pending_pickup'
   | 'in_transit'

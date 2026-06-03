@@ -35,7 +35,7 @@ export default async function NewLoadPage() {
       // this pool further by truck_type at render time.
       adminClient
         .from('truckers')
-        .select('id, phone_e164, full_name, truck_type, status')
+        .select('id, phone_e164, secondary_phone, full_name, truck_type, status')
         .is('archived_at', null)
         .in('status', ['active', 'blocked'])
         .order('full_name', { ascending: true, nullsFirst: false }),
@@ -53,6 +53,7 @@ export default async function NewLoadPage() {
   const truckerPool: EligibleTrucker[] = (truckers.data ?? []).map((t) => ({
     id: t.id,
     phone_e164: t.phone_e164,
+    secondary_phone: t.secondary_phone ?? null,
     full_name: t.full_name,
     truck_type: t.truck_type as TruckType,
     status: t.status as TruckerStatus,

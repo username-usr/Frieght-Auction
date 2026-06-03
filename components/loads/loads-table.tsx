@@ -70,9 +70,33 @@ function normalize(row: LoadsSelectRow): LoadListRow {
 
 const STATUS_BADGE: Record<LoadStatus, string> = {
   open: 'bg-blue-100 text-blue-900',
-  awarded: 'bg-green-100 text-green-900',
+  awarded: 'bg-amber-100 text-amber-900',
+  accepted: 'bg-green-100 text-green-900',
+  declined: 'bg-red-100 text-red-900',
   cancelled: 'bg-slate-200 text-slate-700',
   completed: 'bg-slate-200 text-slate-700',
+}
+
+// Human-friendly relabel for the three Awarded sub-states. The DB status
+// stays the source of truth; this map only affects what the operator reads.
+const STATUS_LABEL: Record<LoadStatus, string> = {
+  open: 'open',
+  awarded: 'awaiting',
+  accepted: 'accepted',
+  declined: 'declined',
+  cancelled: 'cancelled',
+  completed: 'completed',
+}
+
+// Left-border tint per status. Used to color-code rows inside the Awarded
+// section without introducing a new section header.
+const ROW_TINT: Record<LoadStatus, string> = {
+  open: '',
+  awarded: 'border-l-4 border-amber-400',
+  accepted: 'border-l-4 border-green-500',
+  declined: 'border-l-4 border-red-400',
+  cancelled: '',
+  completed: '',
 }
 
 type Props = {
@@ -167,10 +191,19 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
 
   // Status filter is applied client-side so the realtime subscription
   // doesn't have to be torn down and re-created when the user switches tabs.
+  // 'awarded' groups the three sub-states so a load moving from awarded →
+  // accepted/declined stays in the same tab the operator was looking at.
   const visibleLoads =
     statusFilter === 'all'
       ? loads
-      : loads.filter((l) => l.status === statusFilter)
+      : statusFilter === 'awarded'
+        ? loads.filter(
+            (l) =>
+              l.status === 'awarded' ||
+              l.status === 'accepted' ||
+              l.status === 'declined'
+          )
+        : loads.filter((l) => l.status === statusFilter)
 
   if (visibleLoads.length === 0) {
     return (
@@ -205,7 +238,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
               <tr
                 key={load.id}
                 onClick={() => router.push(`/dashboard/loads/${load.id}`)}
-                className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${
+                className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${ROW_TINT[load.status]} ${
                   flashing ? 'bg-blue-100' : ''
                 }`}
               >
@@ -231,7 +264,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                   <span
                     className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[load.status]}`}
                   >
-                    {load.status}
+                    {STATUS_LABEL[load.status]}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums text-slate-700">
