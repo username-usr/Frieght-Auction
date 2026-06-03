@@ -23,6 +23,12 @@ type LoadItem = {
   quantity_unit: { name: string } | null
 }
 
+type AdditionalDestinationRow = {
+  id: string
+  address: string
+  position: number
+}
+
 type LoadDetail = {
   id: string
   reference_code: string
@@ -35,6 +41,7 @@ type LoadDetail = {
   status: LoadStatus
   created_at: string
   items: LoadItem[]
+  destinations: AdditionalDestinationRow[]
 }
 
 type BidRow = {
@@ -55,7 +62,8 @@ const LOAD_SELECT = `id, reference_code, origin_address, destination_address, tr
              product:product_names!product_name_id(name),
              container:container_types!container_type_id(name),
              quantity_unit:quantity_units!quantity_unit_id(name)
-           )`
+           ),
+           destinations:load_destinations(id, address, position)`
 
 export default async function TruckerLoadDetailPage({
   params,
@@ -116,6 +124,9 @@ export default async function TruckerLoadDetailPage({
   }
 
   const items = [...load.items].sort((a, b) => a.position - b.position)
+  const additionalDestinations = [...(load.destinations ?? [])].sort(
+    (a, b) => a.position - b.position
+  )
   const totals = items.reduce(
     (acc, it) => {
       const w = Number(it.weight_value)
@@ -196,6 +207,12 @@ export default async function TruckerLoadDetailPage({
           <div>
             <h1 className="text-lg font-semibold text-slate-900">
               {load.origin_address} → {load.destination_address}
+              {additionalDestinations.length > 0 ? (
+                <span className="text-slate-500">
+                  {' '}
+                  (+{additionalDestinations.length} more)
+                </span>
+              ) : null}
             </h1>
             <p className="mt-1 font-mono text-xs text-slate-500">
               #{load.reference_code}
@@ -205,6 +222,30 @@ export default async function TruckerLoadDetailPage({
             {load.status}
           </span>
         </div>
+
+        {additionalDestinations.length > 0 ? (
+          <div className="mt-3 rounded-md border border-slate-200 bg-slate-50/60 p-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              All destinations
+            </p>
+            <ol className="mt-2 space-y-1 text-sm text-slate-900">
+              <li>
+                <span className="mr-2 inline-block w-4 text-right tabular-nums text-slate-500">
+                  1.
+                </span>
+                {load.destination_address}
+              </li>
+              {additionalDestinations.map((d, idx) => (
+                <li key={d.id}>
+                  <span className="mr-2 inline-block w-4 text-right tabular-nums text-slate-500">
+                    {idx + 2}.
+                  </span>
+                  {d.address}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
         <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
           <div>
             <dt className="text-slate-500">Truck</dt>

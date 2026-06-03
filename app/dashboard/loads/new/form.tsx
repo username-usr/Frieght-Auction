@@ -96,11 +96,27 @@ export type EligibleTrucker = {
   status: TruckerStatus
 }
 
+type AdditionalDestination = {
+  rowKey: string
+  address: string
+}
+
+function blankDestination(): AdditionalDestination {
+  return {
+    rowKey:
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
+    address: '',
+  }
+}
+
 type Props = {
   productOptions: LookupOption[]
   containerOptions: LookupOption[]
   quantityUnitOptions: LookupOption[]
   truckerPool: EligibleTrucker[]
+  savedAddresses: string[]
 }
 
 export function NewLoadForm({
@@ -108,9 +124,13 @@ export function NewLoadForm({
   containerOptions,
   quantityUnitOptions,
   truckerPool,
+  savedAddresses,
 }: Props) {
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
+  const [additionalDestinations, setAdditionalDestinations] = useState<
+    AdditionalDestination[]
+  >([])
   const [truckType, setTruckType] = useState<TruckType>('open')
   const [pickupDeadline, setPickupDeadline] = useState('')
   const [referencePrice, setReferencePrice] = useState('')
@@ -122,6 +142,20 @@ export function NewLoadForm({
     () => new Set()
   )
   const [isPending, startTransition] = useTransition()
+
+  function addDestination() {
+    setAdditionalDestinations((prev) => [...prev, blankDestination()])
+  }
+
+  function removeDestination(idx: number) {
+    setAdditionalDestinations((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  function updateDestination(idx: number, address: string) {
+    setAdditionalDestinations((prev) =>
+      prev.map((d, i) => (i === idx ? { ...d, address } : d))
+    )
+  }
 
   // Truckers whose truck_type matches the load's requirement OR who can
   // run any load via the 'open' wildcard. Re-derived on every truckType
@@ -266,6 +300,12 @@ export function NewLoadForm({
             weight_unit: it.weight_unit,
           })),
           trucker_ids: Array.from(selectedTruckerIds),
+          // Filter blanks here too so the action doesn't have to second-
+          // guess our intent. The action re-numbers positions to be 1-based.
+          additional_destinations: additionalDestinations
+            .map((d) => d.address.trim())
+            .filter((a) => a.length > 0)
+            .map((address, idx) => ({ address, position: idx + 1 })),
         })
         // createLoad redirects on success — control never gets here.
       } catch (err) {
@@ -307,6 +347,7 @@ export function NewLoadForm({
             name="origin_address"
             type="text"
             autoComplete="off"
+            list="saved-addresses"
             disabled={isPending}
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
@@ -328,6 +369,7 @@ export function NewLoadForm({
             name="destination_address"
             type="text"
             autoComplete="off"
+            list="saved-addresses"
             disabled={isPending}
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
@@ -339,6 +381,50 @@ export function NewLoadForm({
           ) : (
             <p className="mt-1 text-xs text-slate-500">Required</p>
           )}
+
+          {additionalDestinations.map((dest, idx) => {
+            const inputId = `destination-additional-${dest.rowKey}`
+            return (
+              <div key={dest.rowKey} className="mt-3">
+                <div className="flex items-center justify-between">
+                  <label htmlFor={inputId} className={LABEL}>
+                    Destination {idx + 2}{' '}
+                    <span className="font-normal text-slate-500">
+                      — optional
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => removeDestination(idx)}
+                    className="text-xs font-medium text-red-700 hover:text-red-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                  >
+                    × Remove
+                  </button>
+                </div>
+                <input
+                  id={inputId}
+                  type="text"
+                  autoComplete="off"
+                  list="saved-addresses"
+                  disabled={isPending}
+                  value={dest.address}
+                  onChange={(e) => updateDestination(idx, e.target.value)}
+                  placeholder="Next stop address"
+                  className={FIELD}
+                />
+              </div>
+            )
+          })}
+
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={addDestination}
+            className="mt-3 text-sm font-medium text-slate-700 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+          >
+            + Add destination
+          </button>
         </div>
       </div>
 
@@ -720,6 +806,15 @@ export function NewLoadForm({
           Cancel
         </Link>
       </div>
+
+      {/* Shared datalist referenced by origin + primary destination +
+        each additional destination input. Browser-native autocomplete —
+        no third-party dropdown library needed. */}
+      <datalist id="saved-addresses">
+        {savedAddresses.map((a) => (
+          <option key={a} value={a} />
+        ))}
+      </datalist>
     </form>
   )
 }

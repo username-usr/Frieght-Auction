@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { rememberAddress } from '@/lib/saved-addresses'
 import { createClient } from '@/lib/supabase/server'
 import type { TruckType, WeightUnit } from '@/lib/types'
 
@@ -13,6 +14,11 @@ export type CreateLoadItemInput = {
   weight_unit: WeightUnit
 }
 
+export type NewDestination = {
+  address: string
+  position: number
+}
+
 export type CreateLoadInput = {
   origin_address: string
   destination_address: string
@@ -22,6 +28,7 @@ export type CreateLoadInput = {
   notes: string | null
   items: CreateLoadItemInput[]
   trucker_ids: string[]
+  additional_destinations: NewDestination[]
 }
 
 const UUID_RE =
@@ -52,15 +59,15 @@ function validateItem(it: CreateLoadItemInput, idx: number): void {
 // Server action invoked from the new-load form. Re-validates input as a
 // safety net (the client validates first, but never trust the client) and
 // then delegates the actual writes to create_load_with_items() so the load,
-// items, and per-trucker visibility rows all land in a single transaction
-// (migration 0015). The RPC reads auth.uid() server-side for posted_by and
-// enforces the operator check, so the client doesn't pass either.
+// items, per-trucker visibility rows, and any additional destinations all
+// land in a single transaction (migrations 0015 + 0018). The RPC reads
+// auth.uid() server-side for posted_by and enforces the operator check,
+// so the client doesn't pass either.
 //
-// trucker_ids is the explicit operator-chosen visibility list (Part I). We
-// re-validate each id against the DB to confirm the trucker exists, isn't
-// archived, and matches the load's truck_type criteria — defends against
-// a stale client picking truckers who've since been archived or had their
-// truck_type changed.
+// After the load is written, the same operator-typed addresses are upserted
+// into saved_addresses so the next new-load form sees them as autocomplete
+// suggestions. Upsert failures are swallowed silently — a stale autocomplete
+// is preferable to surfacing a "load saved but autocomplete broke" UI.
 export async function createLoad(input: CreateLoadInput): Promise<never> {
   const origin = input.origin_address.trim()
   const destination = input.destination_address.trim()
@@ -100,6 +107,21 @@ export async function createLoad(input: CreateLoadInput): Promise<never> {
       throw new Error('One or more selected truckers are no longer eligible. Refresh and try again.')
     }
   }
+
+  // Filter out blank additional destinations and renumber 1-indexed positions
+  // so the array order survives whatever the client did with insertions or
+  // removals.
+  const additionalDestinationsClean: NewDestination[] = (
+    Array.isArray(input.additional_destinations)
+      ? input.additional_destinations
+      : []
+  )
+    .map((d) => ({
+      address: typeof d.address === 'string' ? d.address.trim() : '',
+      position: 0,
+    }))
+    .filter((d) => d.address.length > 0)
+    .map((d, idx) => ({ address: d.address, position: idx + 1 }))
 
   const supabase = await createClient()
   // Surface "not authenticated" with a clean message before the RPC.
@@ -150,11 +172,28 @@ export async function createLoad(input: CreateLoadInput): Promise<never> {
       p_notes: input.notes,
       p_items: input.items,
       p_trucker_ids: truckerIds,
+      p_additional_destinations: additionalDestinationsClean,
     }
   )
 
   if (error) throw new Error(error.message)
   if (!loadId) throw new Error('Insert returned no row.')
+
+  // Best-effort remember of every address the operator typed, so they
+  // surface in autocomplete next time. Each call is its own round-trip
+  // because supabase-js doesn't expose a multi-row UPSERT with ON CONFLICT
+  // ignore on a small list — keeping these sequential is fine for the small
+  // address-count case (1 origin + 1 primary + N additional, N usually 0–3).
+  try {
+    await rememberAddress(supabase, origin)
+    await rememberAddress(supabase, destination)
+    for (const d of additionalDestinationsClean) {
+      await rememberAddress(supabase, d.address)
+    }
+  } catch {
+    // Autocomplete is a UX nicety — never surface a remember failure to
+    // the operator who just successfully posted a load.
+  }
 
   redirect(`/dashboard/loads/${loadId}`)
 }

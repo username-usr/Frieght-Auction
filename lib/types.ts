@@ -121,6 +121,26 @@ export type LoadTruckerVisibility = {
   created_at: string
 }
 
+// Operator-typed addresses captured at load-post time and surfaced as a
+// <datalist> on the new-load form (migration 0018). Shared pool across
+// all operators; no per-operator scoping yet.
+export type SavedAddress = {
+  id: string
+  address: string
+  created_at: string
+}
+
+// Additional destination stops beyond the primary destination_address on
+// loads (migration 0018). Position is 1-indexed in the order suggested by
+// the operator at post time; the trucker can deviate in practice.
+export type LoadDestination = {
+  id: string
+  load_id: string
+  address: string
+  position: number
+  created_at: string
+}
+
 export type Bid = {
   id: string
   load_id: string
