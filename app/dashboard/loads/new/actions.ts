@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { rememberAddress } from '@/lib/saved-addresses'
+import { sendNewLoadAlerts } from '@/lib/notifications/new-load-alert'
 import { createClient } from '@/lib/supabase/server'
 import type { TruckType, WeightUnit } from '@/lib/types'
 
@@ -193,6 +194,16 @@ export async function createLoad(input: CreateLoadInput): Promise<never> {
   } catch {
     // Autocomplete is a UX nicety — never surface a remember failure to
     // the operator who just successfully posted a load.
+  }
+
+  // Part 2: fire the new_load_alert WhatsApp template to every visible
+  // trucker. Best-effort — sendNewLoadAlerts never throws, but we still wrap
+  // it so nothing here can prevent the redirect below. The load is already
+  // committed; messaging is a side effect, not part of the transaction.
+  try {
+    await sendNewLoadAlerts(loadId)
+  } catch (err) {
+    console.error('[createLoad] sendNewLoadAlerts unexpected error:', err)
   }
 
   redirect(`/dashboard/loads/${loadId}`)
