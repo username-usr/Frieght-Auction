@@ -203,29 +203,14 @@ export default async function LoadDetailPage({
             </h1>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {canCancel ? (
-              <CancelLoadButton
-                loadId={load.id}
-                activeBidCount={activeBidCount}
-              />
-            ) : null}
-            {load.status === 'awarded' ? (
-              <CancelAwardButton loadId={load.id} />
-            ) : null}
-            {load.status === 'accepted' ? (
-              <MarkCompletedButton loadId={load.id} />
-            ) : null}
-            {load.status === 'completed' ? (
-              <ReopenLoadButton loadId={load.id} />
-            ) : null}
-            {load.status === 'open' ? (
-              <>
-                <BroadcastWhatsAppButton loadId={load.id} />
+          {/* Action Buttons Toolbar: 2 Balanced Rows */}
+          <div className="flex flex-col gap-2 w-full sm:w-auto">
+            {/* Row 1: Reporting & Settings (Edit Visibility, Export CSV, Activity Log) */}
+            <div className="flex flex-wrap items-center gap-2">
+              {load.status === 'open' && (
                 <Link
                   href={`/dashboard/loads/${load.id}/visibility`}
-                  className="inline-flex items-center gap-1.5 h-9 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 transition-colors flex-1 sm:flex-initial"
                 >
                   <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -233,22 +218,44 @@ export default async function LoadDetailPage({
                   </svg>
                   Edit visibility
                 </Link>
-              </>
-            ) : null}
-            <ExportBidsButton
-              loadRefCode={load.reference_code}
-              bids={bids}
-              referencePricePaise={load.reference_price_paise}
-            />
-            <Link
-              href={`/dashboard/loads/${load.id}/audit`}
-              className="inline-flex items-center gap-1.5 h-9 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-            >
-              <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Activity log
-            </Link>
+              )}
+              <ExportBidsButton
+                loadRefCode={load.reference_code}
+                bids={bids}
+                referencePricePaise={load.reference_price_paise}
+              />
+              <Link
+                href={`/dashboard/loads/${load.id}/audit`}
+                className="inline-flex items-center justify-center gap-1.5 h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 transition-colors flex-1 sm:flex-initial"
+              >
+                <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Activity log
+              </Link>
+            </div>
+
+            {/* Row 2: Operational Actions (WhatsApp Alert, Completion, Reopen, Cancel) */}
+            <div className="flex flex-wrap items-center gap-2">
+              {load.status === 'open' && (
+                <BroadcastWhatsAppButton loadId={load.id} />
+              )}
+              {load.status === 'accepted' && (
+                <MarkCompletedButton loadId={load.id} />
+              )}
+              {load.status === 'awarded' && (
+                <CancelAwardButton loadId={load.id} />
+              )}
+              {load.status === 'completed' && (
+                <ReopenLoadButton loadId={load.id} />
+              )}
+              {canCancel && (
+                <CancelLoadButton
+                  loadId={load.id}
+                  activeBidCount={activeBidCount}
+                />
+              )}
+            </div>
           </div>
         </div>
       </header>
