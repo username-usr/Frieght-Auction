@@ -113,6 +113,27 @@ export function ShipmentDetailsForm({
         />
       </div>
 
+      <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3">
+        <label className={LABEL}>
+          📷 Proof of Delivery (POD) & e-Way Bill
+          <span className="font-normal text-slate-500"> — upload photo / PDF</span>
+        </label>
+        <input
+          type="file"
+          accept="image/*,.pdf"
+          disabled={isPending}
+          onChange={(e) => {
+            if (e.target.files?.[0]) {
+              toast.success(`Selected POD: ${e.target.files[0].name}`)
+            }
+          }}
+          className="mt-2 block w-full text-xs text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-slate-800"
+        />
+        <p className="mt-1 text-[11px] text-slate-500">
+          Upload signed delivery copy or e-Way bill receipt for operator verification.
+        </p>
+      </div>
+
       <div className="flex items-center gap-3 border-t border-slate-200 pt-4">
         <button
           type="submit"
