@@ -56,8 +56,11 @@ export function CancelLoadButton({ loadId, activeBidCount }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+        className="inline-flex items-center gap-1.5 h-9 rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm hover:bg-red-100 transition-colors"
       >
+        <svg className="h-3.5 w-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
         Cancel load
       </button>
 
