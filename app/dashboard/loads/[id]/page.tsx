@@ -9,6 +9,7 @@ import { CancelAwardButton } from './cancel-award-button'
 import { MarkCompletedButton } from './mark-completed-button'
 import { ReopenLoadButton } from './reopen-load-button'
 import { BroadcastWhatsAppButton } from './broadcast-whatsapp-button'
+import { ExportBidsButton } from './export-bids-button'
 import { getOperatorContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -234,6 +235,11 @@ export default async function LoadDetailPage({
                 </Link>
               </>
             ) : null}
+            <ExportBidsButton
+              loadRefCode={load.reference_code}
+              bids={bids}
+              referencePricePaise={load.reference_price_paise}
+            />
             <Link
               href={`/dashboard/loads/${load.id}/audit`}
               className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-colors"

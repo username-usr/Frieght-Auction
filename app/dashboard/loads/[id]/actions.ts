@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { sendNewLoadAlerts } from '@/lib/notifications/new-load-alert'
 import { sendTwilioLoadAlerts } from '@/lib/notifications/twilio-load-alert'
+import { sendTwilioAwardNotification } from '@/lib/notifications/twilio-award-alert'
 
 export type AwardErrorCode =
   | 'CONCURRENT_AWARD'
@@ -79,11 +80,19 @@ export async function awardBidAction(
     }
   }
 
+  const winnerPhone = row.winner_phone as string
+  const loserPhones = (row.loser_phones as string[] | null) ?? []
+
+  // Asynchronously broadcast award & outbid notifications via WhatsApp
+  sendTwilioAwardNotification(loadId, winnerPhone, loserPhones).catch((err) => {
+    console.error('[awardBidAction] WhatsApp award alert error:', err)
+  })
+
   return {
     success: true,
     shipmentId: row.shipment_id as string,
-    winnerPhone: row.winner_phone as string,
-    loserPhones: (row.loser_phones as string[] | null) ?? [],
+    winnerPhone,
+    loserPhones,
   }
 }
 
