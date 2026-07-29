@@ -249,3 +249,104 @@ export async function cancelAwardAction(loadId: string): Promise<void> {
   revalidatePath('/dashboard/loads')
   revalidatePath(`/dashboard/loads/${loadId}`)
 }
+
+// ---------------------------------------------------------------------------
+// Record a manual bid (placed by operator on behalf of a trucker calling in)
+// ---------------------------------------------------------------------------
+
+export type ManualBidResult =
+  | { success: true; bidId: string }
+  | { success: false; error: string }
+
+export async function placeManualBidAction(
+  loadId: string,
+  truckerPhone: string,
+  amountPaise: number,
+  truckerName?: string
+): Promise<ManualBidResult> {
+  await requireOperator()
+  if (!loadId || !truckerPhone || !amountPaise) {
+    return { success: false, error: 'All fields are required.' }
+  }
+
+  if (amountPaise <= 0) {
+    return { success: false, error: 'Bid amount must be greater than zero.' }
+  }
+
+  const supabase = createAdminClient()
+
+  // Clean phone string format (e.g. ensure +91 prefix for Indian numbers if not present)
+  let cleanPhone = truckerPhone.trim().replace(/[\s-]/g, '')
+  if (!cleanPhone.startsWith('+')) {
+    if (cleanPhone.length === 10) {
+      cleanPhone = `+91${cleanPhone}`
+    } else {
+      cleanPhone = `+${cleanPhone}`
+    }
+  }
+
+  // Fetch load to verify truck_type
+  const { data: load, error: loadErr } = await supabase
+    .from('loads')
+    .select('id, status, truck_type_required')
+    .eq('id', loadId)
+    .single()
+
+  if (loadErr || !load) {
+    return { success: false, error: 'Load not found.' }
+  }
+
+  if (load.status !== 'open') {
+    return { success: false, error: 'Bids can only be placed on open loads.' }
+  }
+
+  // Find or create trucker record
+  let truckerId: string
+  const { data: existingTrucker } = await supabase
+    .from('truckers')
+    .select('id')
+    .eq('phone_e164', cleanPhone)
+    .maybeSingle()
+
+  if (existingTrucker) {
+    truckerId = existingTrucker.id
+  } else {
+    // Create trucker
+    const { data: newTrucker, error: createErr } = await supabase
+      .from('truckers')
+      .insert({
+        phone_e164: cleanPhone,
+        full_name: truckerName?.trim() || `Trucker (${cleanPhone.slice(-4)})`,
+        truck_type: load.truck_type_required,
+        status: 'active',
+      })
+      .select('id')
+      .single()
+
+    if (createErr || !newTrucker) {
+      return { success: false, error: `Failed to register trucker: ${createErr?.message}` }
+    }
+    truckerId = newTrucker.id
+  }
+
+  // Insert active bid
+  const { data: newBid, error: bidErr } = await supabase
+    .from('bids')
+    .insert({
+      load_id: loadId,
+      trucker_id: truckerId,
+      amount_paise: amountPaise,
+      status: 'active',
+      message_text: 'Manual bid placed by operator',
+    })
+    .select('id')
+    .single()
+
+  if (bidErr || !newBid) {
+    return { success: false, error: `Failed to place bid: ${bidErr?.message}` }
+  }
+
+  revalidatePath(`/dashboard/loads/${loadId}`)
+  return { success: true, bidId: newBid.id }
+}
+

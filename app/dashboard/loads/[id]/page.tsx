@@ -160,7 +160,7 @@ export default async function LoadDetailPage({
   const { data: bidsRaw, error: bidsError } = await supabase
     .from('bids')
     .select(
-      `id, amount_paise, status, created_at,
+      `id, amount_paise, status, created_at, message_text,
        trucker:truckers!bids_trucker_id_fkey(full_name, phone_e164, truck_type)`
     )
     .eq('load_id', load.id)
@@ -168,8 +168,6 @@ export default async function LoadDetailPage({
 
   const bids = (bidsRaw ?? []) as unknown as BidRowData[]
 
-  // Server-side gate: button renders only when the viewer is the poster
-  // AND the load is still open. The DB function re-enforces both.
   const canCancel =
     load.status === 'open' &&
     currentOperator?.id != null &&
@@ -178,36 +176,33 @@ export default async function LoadDetailPage({
 
   return (
     <div className="space-y-6">
-      <nav className="text-sm">
-        <Link
-          href="/dashboard"
-          className="text-slate-600 hover:text-slate-900"
-        >
-          Dashboard
-        </Link>
-        <span className="mx-2 text-slate-400">/</span>
-        <span className="font-mono text-slate-900">
-          Load #{load.reference_code}
-        </span>
-      </nav>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-            {load.origin_address} → {load.destination_address}
-            {additionalDestinations.length > 0 ? (
-              <span className="text-slate-500">
-                {' '}
-                (+{additionalDestinations.length} more)
+      {/* 1. TOP HEADER BAR: Ref ID, Route Title, Status Badge & Action Buttons */}
+      <header className="py-2 px-1 mb-4 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-mono font-semibold text-slate-700 border border-slate-200">
+                Load #{load.reference_code}
               </span>
-            ) : null}
-          </h2>
-          <div className="flex items-center gap-3">
-            <span
-              className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${LOAD_STATUS_BADGE[load.status]}`}
-            >
-              {load.status}
-            </span>
+              <span
+                className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${LOAD_STATUS_BADGE[load.status]}`}
+              >
+                {load.status}
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {load.origin_address} → {load.destination_address}
+              {additionalDestinations.length > 0 ? (
+                <span className="text-slate-500 font-normal text-lg">
+                  {' '}
+                  (+{additionalDestinations.length} drop stop{additionalDestinations.length > 1 ? 's' : ''})
+                </span>
+              ) : null}
+            </h1>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2.5">
             {canCancel ? (
               <CancelLoadButton
                 loadId={load.id}
@@ -223,266 +218,32 @@ export default async function LoadDetailPage({
             {load.status === 'completed' ? (
               <ReopenLoadButton loadId={load.id} />
             ) : null}
-          </div>
-        </div>
-
-        {additionalDestinations.length > 0 ? (
-          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/60 p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              All destinations
-            </p>
-            <ol className="mt-2 space-y-1 text-sm text-slate-900">
-              <li>
-                <span className="mr-2 inline-block w-4 text-right tabular-nums text-slate-500">
-                  1.
-                </span>
-                {load.destination_address}
-              </li>
-              {additionalDestinations.map((d, idx) => (
-                <li key={d.id}>
-                  <span className="mr-2 inline-block w-4 text-right tabular-nums text-slate-500">
-                    {idx + 2}.
-                  </span>
-                  {d.address}
-                </li>
-              ))}
-            </ol>
-          </div>
-        ) : null}
-
-        {load.status === 'cancelled' && load.cancelled_at ? (
-          <p className="mt-3 text-sm text-slate-600">
-            Cancelled by{' '}
-            <span className="font-medium text-slate-900">
-              {load.cancelled_by_operator?.full_name ?? 'unknown'}
-            </span>{' '}
-            at {formatAbsoluteIST(load.cancelled_at)}
-            {load.cancellation_reason
-              ? ` — Reason: ${load.cancellation_reason}`
-              : ''}
-            .
-          </p>
-        ) : null}
-
-        {/* Lifecycle banners: 'awarded' is amber pending, 'accepted' is
-          green confirmed, 'declined' is red with the trucker's reason. */}
-        {load.status === 'awarded' ? (
-          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            <p className="font-medium">Awaiting trucker acceptance</p>
-            <p className="mt-1 text-xs">
-              The winning trucker will accept or decline this award. You can
-              cancel the award above to reopen bidding.
-            </p>
-          </div>
-        ) : null}
-        {load.status === 'accepted' && load.accepted_at ? (
-          <p className="mt-3 text-sm text-slate-600">
-            Trucker accepted at {formatAbsoluteIST(load.accepted_at)}.
-          </p>
-        ) : null}
-        {load.status === 'declined' ? (
-          <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-            <p className="font-medium">Trucker declined this award</p>
-            {load.declined_at ? (
-              <p className="mt-1 text-xs">
-                On {formatAbsoluteIST(load.declined_at)}
-              </p>
+            {load.status === 'open' ? (
+              <Link
+                href={`/dashboard/loads/${load.id}/visibility`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+              >
+                <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Edit visibility
+              </Link>
             ) : null}
-            {load.decline_reason ? (
-              <p className="mt-2 whitespace-pre-wrap text-xs text-red-800">
-                <span className="font-medium">Reason:</span>{' '}
-                {load.decline_reason}
-              </p>
-            ) : null}
-            <p className="mt-2 text-xs">
-              Pick another bid below to re-award the load.
-            </p>
-          </div>
-        ) : null}
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <Link
-            href={`/dashboard/loads/${load.id}/audit`}
-            className="font-medium text-slate-700 hover:text-slate-900"
-          >
-            View activity log →
-          </Link>
-          {load.status === 'open' ? (
             <Link
-              href={`/dashboard/loads/${load.id}/visibility`}
-              className="font-medium text-slate-700 hover:text-slate-900"
+              href={`/dashboard/loads/${load.id}/audit`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-colors"
             >
-              Edit visibility →
+              <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Activity log
             </Link>
-          ) : null}
+          </div>
         </div>
+      </header>
 
-        <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Truck type
-            </dt>
-            <dd className="mt-1 text-sm capitalize text-slate-900">
-              {load.truck_type_required}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Pickup deadline
-            </dt>
-            <dd className="mt-1 text-sm text-slate-900">
-              {formatAbsoluteIST(load.pickup_deadline)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Posted by
-            </dt>
-            <dd className="mt-1 text-sm text-slate-900">
-              {load.posted_by_operator?.full_name ?? '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Posted
-            </dt>
-            <dd className="mt-1 text-sm text-slate-900">
-              {formatRelativeTime(load.created_at)}
-            </dd>
-          </div>
-          {load.reference_price_paise != null && (
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Reference price
-              </dt>
-              <dd className="mt-1 text-sm tabular-nums text-slate-900">
-                {formatINR(load.reference_price_paise)}
-              </dd>
-            </div>
-          )}
-        </dl>
-
-        {load.notes ? (
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Notes
-            </p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
-              {load.notes}
-            </p>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">
-          Stock items ({items.length})
-        </h3>
-        {items.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">No items on this load.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
-                <tr>
-                  <th className="px-4 py-2 text-left">Stock item</th>
-                  <th className="px-4 py-2 text-left">Container</th>
-                  <th className="px-4 py-2 text-right">Quantity</th>
-                  <th className="px-4 py-2 text-right">Weight</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((item) => {
-                  const qty = Number(item.quantity_value)
-                  const w = Number(item.weight_value)
-                  return (
-                    <tr key={item.id}>
-                      <td className="px-4 py-2 font-medium text-slate-900">
-                        {item.product?.name ?? '—'}
-                      </td>
-                      <td className="px-4 py-2 text-slate-700">
-                        {item.container?.name ?? '—'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-slate-700">
-                        {qty.toLocaleString('en-IN')}{' '}
-                        {item.quantity_unit?.name ?? ''}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-slate-700">
-                        {w.toLocaleString('en-IN')} {item.weight_unit}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot className="bg-slate-50 text-xs">
-                <tr>
-                  <td
-                    className="px-4 py-2 text-right font-medium uppercase tracking-wider text-slate-600"
-                    colSpan={3}
-                  >
-                    Total weight
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums font-semibold text-slate-900">
-                    {totals.kg.toLocaleString('en-IN')} kg
-                    {' • '}
-                    {totals.liters.toLocaleString('en-IN')} liters
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {/* Shipment details: trucker-owned now. Operator sees read-only.
-        Section is rendered once the load is 'accepted' (or later); before
-        acceptance the trucker hasn't had a chance to fill these in. */}
-      {load.status === 'accepted' || load.status === 'completed' ? (
-        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-900">
-            Shipment details
-          </h3>
-          <p className="mt-1 text-xs text-slate-500">
-            Filled in by the trucker. Invoice number is operator-managed
-            (no editor yet).
-          </p>
-          <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Invoice number
-              </dt>
-              <dd className="mt-1 text-sm text-slate-900">
-                {load.invoice_number ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Truck number
-              </dt>
-              <dd className="mt-1 font-mono text-sm uppercase tracking-wider text-slate-900">
-                {load.truck_number ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Driver name
-              </dt>
-              <dd className="mt-1 text-sm text-slate-900">
-                {load.driver_name ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Driver phone
-              </dt>
-              <dd className="mt-1 font-mono text-sm text-slate-900">
-                {load.driver_phone ?? '—'}
-              </dd>
-            </div>
-          </dl>
-        </section>
-      ) : null}
-
+      {/* 2. KPI ANALYTICS SECTION (Directly Below Title Header) */}
       {bidsError ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-900">
           <p className="font-semibold">Failed to load bids.</p>
@@ -493,6 +254,183 @@ export default async function LoadDetailPage({
           loadId={load.id}
           loadStatus={load.status}
           initialBids={bids}
+          referencePricePaise={load.reference_price_paise}
+          renderMode="kpi"
+        />
+      )}
+
+      {/* 3. UNIFIED LOAD SPECIFICATION SHEET (Clean Minimal Spec Sheet) */}
+      <section className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+        <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            Load Specifications & Logistics
+          </h2>
+          <span className="text-xs text-slate-500 font-medium font-mono">
+            #{load.reference_code}
+          </span>
+        </div>
+
+        <div className="divide-y divide-slate-100 text-sm">
+          {/* Row 1: Logistics Addresses & Route */}
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 bg-white">
+            <div className="p-4 space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block">Origin Pickup</span>
+              <div className="font-medium text-slate-900 text-sm flex items-center gap-2 pt-0.5">
+                <svg className="h-4 w-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+                {load.origin_address}
+              </div>
+            </div>
+
+            <div className="p-4 space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block">Destination Unloading</span>
+              <div className="font-medium text-slate-900 text-sm flex items-center gap-2 pt-0.5">
+                <svg className="h-4 w-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {load.destination_address}
+                {additionalDestinations.length > 0 && (
+                  <span className="text-xs font-normal text-slate-500 block">
+                    (+{additionalDestinations.length} drop stop{additionalDestinations.length > 1 ? 's' : ''}: {additionalDestinations.map(d => d.address).join(', ')})
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Cargo Specs & Fleet Specs in 4 Equal Columns */}
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-slate-100 bg-slate-50/40">
+            <div className="p-4">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block">Truck Required</span>
+              <span className="mt-1 block font-semibold capitalize text-slate-900">{load.truck_type_required}</span>
+            </div>
+            <div className="p-4">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block">Pickup Deadline</span>
+              <span className="mt-1 block font-medium text-slate-900">{formatAbsoluteIST(load.pickup_deadline)}</span>
+            </div>
+            <div className="p-4">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block">Target Ref Price</span>
+              <span className="mt-1 block font-semibold font-mono text-slate-900">
+                {load.reference_price_paise ? formatINR(load.reference_price_paise) : 'Not specified'}
+              </span>
+            </div>
+            <div className="p-4">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block">Posted By</span>
+              <span className="mt-1 block font-medium text-slate-900">{load.posted_by_operator?.full_name ?? 'Operator'}</span>
+            </div>
+          </div>
+
+          {/* Row 3: Stock Items Table Inline */}
+          {items.length > 0 && (
+            <div className="p-4 space-y-3 bg-white">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Stock Items ({items.length})
+                </span>
+                <span className="text-xs font-medium text-slate-600">
+                  Total Weight: <span className="font-bold text-slate-900">{totals.kg.toLocaleString('en-IN')} kg</span>
+                  {totals.liters > 0 ? ` • ${totals.liters.toLocaleString('en-IN')} L` : ''}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-md border border-slate-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Item Name</th>
+                      <th className="px-3 py-2 text-left">Container / Package</th>
+                      <th className="px-3 py-2 text-right">Quantity</th>
+                      <th className="px-3 py-2 text-right">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {items.map((item) => {
+                      const qty = Number(item.quantity_value)
+                      const w = Number(item.weight_value)
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 font-medium text-slate-900">{item.product?.name ?? '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{item.container?.name ?? '—'}</td>
+                          <td className="px-3 py-2 text-right text-slate-700">{qty.toLocaleString('en-IN')} {item.quantity_unit?.name ?? ''}</td>
+                          <td className="px-3 py-2 text-right font-medium text-slate-900 font-mono">{w.toLocaleString('en-IN')} {item.weight_unit}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Row 4: Special Notes & Instructions (if present) */}
+          {load.notes && (
+            <div className="p-4 bg-slate-50/50 space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-400 block">Special Notes & Instructions</span>
+              <p className="text-xs text-slate-700 leading-relaxed font-normal">{load.notes}</p>
+            </div>
+          )}
+
+          {/* Row 5: Driver / Shipment Details (if Accepted or Completed) */}
+          {(load.status === 'accepted' || load.status === 'completed') && (
+            <div className="p-4 bg-emerald-50/40 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs border-t border-emerald-100">
+              <div>
+                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Assigned Truck</span>
+                <span className="font-mono font-bold text-emerald-950 uppercase">{load.truck_number ?? '—'}</span>
+              </div>
+              <div>
+                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Driver Name</span>
+                <span className="font-semibold text-emerald-950">{load.driver_name ?? '—'}</span>
+              </div>
+              <div>
+                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Driver Phone</span>
+                <span className="font-mono text-emerald-950">{load.driver_phone ?? '—'}</span>
+              </div>
+              <div>
+                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Invoice No.</span>
+                <span className="font-medium text-emerald-950">{load.invoice_number ?? '—'}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Lifecycle Banners */}
+          {load.status === 'awarded' && (
+            <div className="p-4 bg-amber-50 text-xs text-amber-900 flex items-center gap-2">
+              <svg className="h-4 w-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Awaiting Trucker Acceptance: The winning trucker will review and accept/decline this award.</span>
+            </div>
+          )}
+
+          {load.status === 'declined' && (
+            <div className="p-4 bg-red-50 text-xs text-red-900 flex items-center gap-2">
+              <svg className="h-4 w-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Trucker Declined Award: {load.decline_reason ?? 'No reason provided'}. Select another bid below to re-award.</span>
+            </div>
+          )}
+
+          {load.status === 'cancelled' && (
+            <div className="p-4 bg-slate-100 text-xs text-slate-700 flex items-center gap-2">
+              <svg className="h-4 w-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              <span>Load Cancelled{load.cancelled_at ? ` on ${formatAbsoluteIST(load.cancelled_at)}` : ''}</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 4. BOTTOM BIDS TABLE SECTION */}
+      {bidsError ? null : (
+        <BidsTableRealtime
+          loadId={load.id}
+          loadStatus={load.status}
+          initialBids={bids}
+          referencePricePaise={load.reference_price_paise}
+          renderMode="table"
         />
       )}
     </div>

@@ -189,11 +189,13 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
     }
   }, [supabase, flashRow])
 
+  const [searchQuery, setSearchQuery] = useState('')
+
   // Status filter is applied client-side so the realtime subscription
   // doesn't have to be torn down and re-created when the user switches tabs.
   // 'awarded' groups the three sub-states so a load moving from awarded →
   // accepted/declined stays in the same tab the operator was looking at.
-  const visibleLoads =
+  const statusFilteredLoads =
     statusFilter === 'all'
       ? loads
       : statusFilter === 'awarded'
@@ -205,79 +207,192 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
           )
         : loads.filter((l) => l.status === statusFilter)
 
-  if (visibleLoads.length === 0) {
+  const visibleLoads = statusFilteredLoads.filter((l) => {
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.toLowerCase().trim()
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-600">
-        {statusFilter === 'open'
-          ? "No open loads yet. Click 'New load' to post one."
-          : `No ${statusFilter === 'all' ? '' : statusFilter} loads.`}
-      </div>
+      l.reference_code.toLowerCase().includes(q) ||
+      l.origin_address.toLowerCase().includes(q) ||
+      l.destination_address.toLowerCase().includes(q) ||
+      l.items_summary.toLowerCase().includes(q) ||
+      l.truck_type_required.toLowerCase().includes(q) ||
+      l.posted_by_name.toLowerCase().includes(q)
     )
+  })
+
+  function exportToCSV() {
+    if (visibleLoads.length === 0) return
+    const headers = [
+      'Reference Code',
+      'Posted At',
+      'Origin',
+      'Destination',
+      'Items',
+      'Truck Type Required',
+      'Pickup Deadline',
+      'Status',
+      'Bid Count',
+      'Posted By',
+    ]
+
+    const rows = visibleLoads.map((l) => [
+      l.reference_code,
+      l.created_at,
+      `"${l.origin_address.replace(/"/g, '""')}"`,
+      `"${l.destination_address.replace(/"/g, '""')}"`,
+      `"${l.items_summary.replace(/"/g, '""')}"`,
+      l.truck_type_required,
+      l.pickup_deadline,
+      l.status,
+      l.bid_count,
+      `"${l.posted_by_name.replace(/"/g, '""')}"`,
+    ])
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', `loads_export_${statusFilter}_${new Date().toISOString().slice(0,10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
-          <tr>
-            <th className="px-4 py-3 text-left">Ref</th>
-            <th className="px-4 py-3 text-left">Posted</th>
-            <th className="px-4 py-3 text-left">Origin → Destination</th>
-            <th className="px-4 py-3 text-left">Items</th>
-            <th className="px-4 py-3 text-left">Truck</th>
-            <th className="px-4 py-3 text-left">Pickup</th>
-            <th className="px-4 py-3 text-left">Status</th>
-            <th className="px-4 py-3 text-right">Bids</th>
-            <th className="px-4 py-3 text-left">Posted by</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {visibleLoads.map((load) => {
-            const flashing = flashIds.has(load.id)
-            return (
-              <tr
-                key={load.id}
-                onClick={() => router.push(`/dashboard/loads/${load.id}`)}
-                className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${ROW_TINT[load.status]} ${
-                  flashing ? 'bg-blue-100' : ''
-                }`}
-              >
-                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium text-slate-900">
-                  {load.reference_code}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  {formatRelativeTime(load.created_at)}
-                </td>
-                <td className="px-4 py-3 font-medium text-slate-900">
-                  {load.origin_address} → {load.destination_address}
-                </td>
-                <td className="px-4 py-3 text-slate-700">
-                  {load.items_summary}
-                </td>
-                <td className="px-4 py-3 capitalize text-slate-700">
-                  {load.truck_type_required}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  {formatAbsoluteIST(load.pickup_deadline)}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[load.status]}`}
-                  >
-                    {STATUS_LABEL[load.status]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                  {load.bid_count}
-                </td>
-                <td className="px-4 py-3 text-slate-700">
-                  {load.posted_by_name}
-                </td>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative min-w-[240px] flex-1 max-w-md">
+          <input
+            type="text"
+            placeholder="Search ref, location, items, trucker, operator..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 pl-9 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+          />
+          <svg
+            className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={exportToCSV}
+          disabled={visibleLoads.length === 0}
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+        >
+          <svg
+            className="h-3.5 w-3.5 text-slate-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+          Export CSV ({visibleLoads.length})
+        </button>
+      </div>
+
+      {visibleLoads.length === 0 ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-600">
+          {searchQuery ? (
+            <p>No loads found matching &quot;{searchQuery}&quot;.</p>
+          ) : statusFilter === 'open' ? (
+            "No open loads yet. Click 'New load' to post one."
+          ) : (
+            `No ${statusFilter === 'all' ? '' : statusFilter} loads.`
+          )}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
+              <tr>
+                <th className="px-4 py-3 text-left">Ref</th>
+                <th className="px-4 py-3 text-left">Posted</th>
+                <th className="px-4 py-3 text-left">Origin → Destination</th>
+                <th className="px-4 py-3 text-left">Items</th>
+                <th className="px-4 py-3 text-left">Truck</th>
+                <th className="px-4 py-3 text-left">Pickup</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-right">Bids</th>
+                <th className="px-4 py-3 text-left">Posted by</th>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visibleLoads.map((load) => {
+                const flashing = flashIds.has(load.id)
+                return (
+                  <tr
+                    key={load.id}
+                    onClick={() => router.push(`/dashboard/loads/${load.id}`)}
+                    className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${ROW_TINT[load.status]} ${
+                      flashing ? 'bg-blue-100' : ''
+                    }`}
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium text-slate-900">
+                      {load.reference_code}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                      {formatRelativeTime(load.created_at)}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      {load.origin_address} → {load.destination_address}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {load.items_summary}
+                    </td>
+                    <td className="px-4 py-3 capitalize text-slate-700">
+                      {load.truck_type_required}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                      {formatAbsoluteIST(load.pickup_deadline)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[load.status]}`}
+                      >
+                        {STATUS_LABEL[load.status]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                      {load.bid_count}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {load.posted_by_name}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
+
