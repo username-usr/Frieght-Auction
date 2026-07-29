@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { sendNewLoadAlerts } from '@/lib/notifications/new-load-alert'
 
 export type AwardErrorCode =
   | 'CONCURRENT_AWARD'
@@ -348,5 +349,13 @@ export async function placeManualBidAction(
 
   revalidatePath(`/dashboard/loads/${loadId}`)
   return { success: true, bidId: newBid.id }
+}
+
+export async function broadcastWhatsAppAlertAction(loadId: string) {
+  await requireOperator()
+  if (!loadId) throw new Error('loadId is required.')
+  const summary = await sendNewLoadAlerts(loadId)
+  revalidatePath(`/dashboard/loads/${loadId}`)
+  return summary
 }
 
