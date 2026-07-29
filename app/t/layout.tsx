@@ -13,12 +13,12 @@ export default function TruckerLayout({
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="bg-amber-200 text-amber-950">
-        <div className="mx-auto max-w-md px-4 py-2 text-center text-xs font-semibold uppercase tracking-widest">
+        <div className="mx-auto max-w-2xl px-4 py-2 text-center text-xs font-semibold uppercase tracking-widest">
           Trucker Portal — Preview
         </div>
       </div>
       <Toaster richColors position="top-center" closeButton />
-      <main className="mx-auto max-w-md px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-2xl px-4 py-6">{children}</main>
     </div>
   )
 }
