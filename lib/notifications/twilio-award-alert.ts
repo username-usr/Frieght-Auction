@@ -1,12 +1,11 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { formatINR } from '@/lib/format'
 import { sendTwilioWhatsAppMessage } from '@/lib/twilio'
 
 export async function sendTwilioAwardNotification(
   loadId: string,
-  winnerPhone: string,
-  loserPhones: string[]
+  winnerPhoneArg?: string | null,
+  loserPhonesArg?: string[] | null
 ) {
   const provider = process.env.WHATSAPP_PROVIDER ?? 'twilio'
   if (provider !== 'twilio') return
@@ -22,6 +21,20 @@ export async function sendTwilioAwardNotification(
 
   if (!load) return
 
+  // Query winning bid directly if winnerPhoneArg is not provided
+  let winnerPhone = winnerPhoneArg ?? null
+  if (!winnerPhone) {
+    const { data: wonBid } = await admin
+      .from('bids')
+      .select('trucker:truckers(phone_e164)')
+      .eq('load_id', loadId)
+      .eq('status', 'won')
+      .maybeSingle()
+
+    const truckerObj = Array.isArray(wonBid?.trucker) ? wonBid?.trucker[0] : wonBid?.trucker
+    winnerPhone = (truckerObj as { phone_e164?: string } | null)?.phone_e164 ?? null
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ramnath-logistics.vercel.app'
 
   // 1. Send WhatsApp Award Notification to Winner
@@ -33,25 +46,31 @@ export async function sendTwilioAwardNotification(
       `${appUrl}/t/loads/${loadId}`
 
     try {
-      await sendTwilioWhatsAppMessage({
+      const res = await sendTwilioWhatsAppMessage({
         toPhone: winnerPhone,
         messageBody: winnerMessage,
       })
+
+      console.log(`[twilio_award_alert] Winner notification result to ${winnerPhone}: ok=${res.ok}`)
 
       await admin.from('whatsapp_messages').insert({
         direction: 'outbound',
         from_phone: process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886',
         to_phone: winnerPhone,
         body: winnerMessage,
-        status: 'sent',
+        wa_message_id: res.ok ? res.sid : null,
+        status: res.ok ? 'sent' : 'failed',
         related_load_id: loadId,
       })
     } catch (err) {
       console.error(`[twilio_award_alert] Winner alert error for ${winnerPhone}:`, err)
     }
+  } else {
+    console.warn(`[twilio_award_alert] No winner phone found for load ${loadId}`)
   }
 
   // 2. Send WhatsApp Notification to Non-Winning Bidders
+  const loserPhones = loserPhonesArg ?? []
   for (const loserPhone of loserPhones) {
     if (!loserPhone || loserPhone === winnerPhone) continue
 
@@ -61,7 +80,7 @@ export async function sendTwilioAwardNotification(
       `Thank you for participating!`
 
     try {
-      await sendTwilioWhatsAppMessage({
+      const res = await sendTwilioWhatsAppMessage({
         toPhone: loserPhone,
         messageBody: loserMessage,
       })
@@ -71,7 +90,8 @@ export async function sendTwilioAwardNotification(
         from_phone: process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886',
         to_phone: loserPhone,
         body: loserMessage,
-        status: 'sent',
+        wa_message_id: res.ok ? res.sid : null,
+        status: res.ok ? 'sent' : 'failed',
         related_load_id: loadId,
       })
     } catch (err) {
