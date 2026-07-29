@@ -28,22 +28,23 @@ All updates, bug fixes, UI enhancements, and feature implementations completed d
 
 ---
 
-### 🚨 End-of-Day (EOD) Pending Issue to Solve Tomorrow
+### 🚨 End-of-Day (EOD) Pending Issue & Resolution Status
 
-| Issue ID | Problem Description | Root Cause | Resolution Action Required |
+| Issue ID | Problem Description | Root Cause | Resolution Action |
 | :--- | :--- | :--- | :--- |
-| `EOD-01` | **Interakt HTTP 403 Forbidden Error on WhatsApp Broadcast** | Interakt API returned: `{"result":false,"message":"This API is currently not supported on your Interakt account. Please consider activating or upgrading your subscription..."}` | 1. **Option A (Interakt Support):** Send a live chat message to Interakt Support (`app.interakt.ai`) asking to enable Developer API access for trial/dev testing.<br>2. **Option B (Meta Cloud API):** Switch to Meta's free official WhatsApp Cloud API (`developers.facebook.com`) which provides 1,000 free monthly conversations for developers. |
+| `EOD-01` | **Interakt HTTP 403 Forbidden Error** | Interakt API tier permission locked | Resolved by switching provider to Twilio WhatsApp (`WHATSAPP_PROVIDER=twilio`). Outbound messages delivering cleanly with SID `SM...`. |
+| `EOD-02` | **Incoming WhatsApp Reply Webhook Routing** | Twilio Sandbox URL defaulted to demo endpoint (`https://timberwolf-mastiff-9776.twil.io/demo-reply`) | In Twilio Console → **Sandbox Configuration**, update **"WHEN A MESSAGE COMES IN"** URL to `https://<YOUR_APP_URL>/api/twilio/webhook` with `HTTP POST`. |
 
 ---
 
 ### 📌 Tomorrow's Continuation Plan
 
-1. **Resolve Interakt API Access / Webhook Setup:**
-   - Confirm Developer API activation on Interakt or connect Meta free developer access token.
-   - Test live outbound WhatsApp alert delivery (`Send WhatsApp Alert` button).
-   - Test live incoming WhatsApp reply (`LOAD-2026-089 23500`) to confirm automated bid placement via webhook.
+1. **Test Live Inbound WhatsApp Bids:**
+   - Expose local port via `npx ngrok http 3000` or deploy to Vercel.
+   - Update Twilio Sandbox **"WHEN A MESSAGE COMES IN"** URL to `https://<URL>/api/twilio/webhook`.
+   - Send WhatsApp reply `<REF_CODE> <BID_AMOUNT>` from mobile and verify instant live bid placement on dashboard.
 
-2. **Next Platform Modules:**
-   - Implement **Proof of Delivery (POD) & e-Way Bill Upload Module** for post-award truck deliveries.
-   - Build **Analytics & Freight Savings CSV/Excel Export** feature for operators.
+2. **Next Platform Features:**
+   - Build **Proof of Delivery (POD) & e-Way Bill Upload Module**.
+   - Build **Analytics & Freight Savings CSV/Excel Export** feature.
 
