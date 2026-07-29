@@ -112,8 +112,11 @@ export function AcceptAwardForm({ loadId }: Props) {
   return (
     <div className="space-y-3 rounded-lg border border-green-200 bg-green-50 p-4">
       <div>
-        <p className="text-sm font-semibold text-green-900">
-          🎉 You&apos;ve been awarded this load
+        <p className="text-sm font-semibold text-green-900 flex items-center gap-1.5">
+          <svg className="h-4 w-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4m6 17v-3.572a2 2 0 01.696-1.506l.542-.46a1 1 0 00.362-.768V9a1 1 0 00-1-1H9a1 1 0 00-1 1v6.694a1 1 0 00.362.768l.542.46A2 2 0 019.6 18.428V22m6 0H9" />
+          </svg>
+          You&apos;ve been awarded this load
         </p>
         <p className="mt-1 text-xs text-green-800">
           Accept to lock it in, or decline with a reason so the operator can

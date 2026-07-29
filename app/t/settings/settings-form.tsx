@@ -50,8 +50,11 @@ export function TruckerSettingsForm({ trucker }: { trucker: CurrentTrucker }) {
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
       {/* 1. Account & Identity */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-4">
-        <h2 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">
-          👤 Transporter Profile & Contact
+        <h2 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+          <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Transporter Profile & Contact
         </h2>
 
         <div>
@@ -120,8 +123,11 @@ export function TruckerSettingsForm({ trucker }: { trucker: CurrentTrucker }) {
 
       {/* 2. Fleet Specifications */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-4">
-        <h2 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">
-          🚛 Fleet Specifications & Truck Type
+        <h2 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+          <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          Fleet Specifications & Truck Type
         </h2>
 
         <div>
