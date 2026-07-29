@@ -119,6 +119,7 @@ export type ShipmentDetailsByTruckerInput = {
   truck_number: string | null
   driver_name: string | null
   driver_phone: string | null
+  pod_document?: string | null
 }
 
 export async function updateShipmentDetailsByTruckerAction(
@@ -131,6 +132,7 @@ export async function updateShipmentDetailsByTruckerAction(
   const truckNumber = input.truck_number?.trim().toUpperCase() || null
   const driverName = input.driver_name?.trim() || null
   const driverPhone = input.driver_phone?.trim() || null
+  const podDocument = input.pod_document?.trim() || null
 
   if (truckNumber && !TRUCK_NUMBER_RE.test(truckNumber)) {
     throw new Error(
@@ -152,18 +154,27 @@ export async function updateShipmentDetailsByTruckerAction(
     throw new Error('You do not have a winning bid on this load.')
   }
 
+  // Update load details and embed POD document in notes if pod_document is provided
+  const updatePayload: Record<string, any> = {
+    truck_number: truckNumber,
+    driver_name: driverName,
+    driver_phone: driverPhone,
+  }
+
+  if (podDocument) {
+    // Append POD metadata to notes or store as JSON text for admin viewer
+    const existingNotes = (await supabase.from('loads').select('notes').eq('id', loadId).maybeSingle())?.data?.notes ?? ''
+    const cleanNotes = existingNotes.split('\n[POD_DOCUMENT]:')[0].trim()
+    updatePayload.notes = `${cleanNotes}\n[POD_DOCUMENT]: ${podDocument}`.trim()
+  }
+
   const { error } = await supabase
     .from('loads')
-    .update({
-      truck_number: truckNumber,
-      driver_name: driverName,
-      driver_phone: driverPhone,
-    })
+    .update(updatePayload)
     .eq('id', loadId)
-    // Editable only while the load is in the 'accepted' lane. Once the
-    // operator marks completed, the fields are frozen.
     .eq('status', 'accepted')
   if (error) throw new Error(error.message)
 
   revalidatePath(`/t/loads/${loadId}`)
+  revalidatePath(`/dashboard/loads/${loadId}`)
 }

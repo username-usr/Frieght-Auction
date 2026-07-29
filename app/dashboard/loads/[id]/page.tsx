@@ -373,11 +373,53 @@ export default async function LoadDetailPage({
             </div>
           )}
 
-          {/* Row 4: Special Notes & Instructions (if present) */}
+          {/* Row 4: Special Notes & Instructions & POD Document Viewer */}
           {load.notes && (
-            <div className="p-4 bg-slate-50/50 space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wider text-slate-400 block">Special Notes & Instructions</span>
-              <p className="text-xs text-slate-700 leading-relaxed font-normal">{load.notes}</p>
+            <div className="p-4 bg-slate-50/50 space-y-3">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block">Special Notes & Logistics Instructions</span>
+              <p className="text-xs text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
+                {load.notes.split('[POD_DOCUMENT]:')[0].trim()}
+              </p>
+
+              {load.notes.includes('[POD_DOCUMENT]:') && (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                      📷 Proof of Delivery (POD) & e-Way Bill Uploaded
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                      ✓ Verified Document
+                    </span>
+                  </div>
+                  <div className="pt-1">
+                    {load.notes.split('[POD_DOCUMENT]:')[1].trim().startsWith('data:image/') ? (
+                      <div className="space-y-2">
+                        <img
+                          src={load.notes.split('[POD_DOCUMENT]:')[1].trim()}
+                          alt="Proof of Delivery / e-Way Bill Receipt"
+                          className="max-h-64 rounded-md border border-emerald-300 object-contain bg-white p-1"
+                        />
+                        <a
+                          href={load.notes.split('[POD_DOCUMENT]:')[1].trim()}
+                          download={`POD_${load.reference_code}.png`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-900 underline"
+                        >
+                          📥 Download High-Res Signed POD Image
+                        </a>
+                      </div>
+                    ) : (
+                      <a
+                        href={load.notes.split('[POD_DOCUMENT]:')[1].trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-900 underline"
+                      >
+                        📄 View Uploaded Signed POD / e-Way Bill Document
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

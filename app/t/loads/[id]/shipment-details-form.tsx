@@ -30,11 +30,27 @@ export function ShipmentDetailsForm({
   const [truckNumber, setTruckNumber] = useState(initialTruckNumber ?? '')
   const [driverName, setDriverName] = useState(initialDriverName ?? '')
   const [driverPhone, setDriverPhone] = useState(initialDriverPhone ?? '')
+  const [podDocument, setPodDocument] = useState<string | null>(null)
+  const [podFileName, setPodFileName] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleTruckNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
     const cleaned = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
     setTruckNumber(cleaned)
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setPodFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string
+      setPodDocument(dataUrl)
+      toast.success(`Attached POD document: ${file.name}`)
+    }
+    reader.readAsDataURL(file)
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -45,8 +61,9 @@ export function ShipmentDetailsForm({
           truck_number: truckNumber.trim() || null,
           driver_name: driverName.trim() || null,
           driver_phone: driverPhone.trim() || null,
+          pod_document: podDocument,
         })
-        toast.success('Saved.')
+        toast.success('Saved shipment details & POD document!')
         router.refresh()
       } catch (err) {
         toast.error(
@@ -122,16 +139,18 @@ export function ShipmentDetailsForm({
           type="file"
           accept="image/*,.pdf"
           disabled={isPending}
-          onChange={(e) => {
-            if (e.target.files?.[0]) {
-              toast.success(`Selected POD: ${e.target.files[0].name}`)
-            }
-          }}
+          onChange={handleFileChange}
           className="mt-2 block w-full text-xs text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-slate-800"
         />
-        <p className="mt-1 text-[11px] text-slate-500">
-          Upload signed delivery copy or e-Way bill receipt for operator verification.
-        </p>
+        {podFileName ? (
+          <p className="mt-1.5 text-xs font-semibold text-emerald-700 flex items-center gap-1">
+            ✓ Ready to save: {podFileName}
+          </p>
+        ) : (
+          <p className="mt-1 text-[11px] text-slate-500">
+            Upload signed delivery copy or e-Way bill receipt for operator verification.
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-3 border-t border-slate-200 pt-4">
