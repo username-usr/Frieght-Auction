@@ -17,7 +17,8 @@ export function AdminSubNav() {
   const pathname = usePathname() ?? ''
 
   return (
-    <nav className="-mb-px flex gap-6">
+    <div className="border-b border-slate-200 overflow-x-auto scrollbar-none">
+      <nav className="-mb-px flex gap-4 sm:gap-6 whitespace-nowrap">
       {TABS.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`)
         return (
@@ -35,5 +36,6 @@ export function AdminSubNav() {
         )
       })}
     </nav>
+    </div>
   )
 }

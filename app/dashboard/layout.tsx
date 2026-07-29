@@ -27,51 +27,73 @@ export default async function DashboardLayout({
   if (!operator) redirect('/not-authorized')
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
-          <div>
-            <p className="text-base font-semibold tracking-tight text-slate-900">
-              Ramnath Logistics
-            </p>
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-              Operator Dashboard
-            </p>
-          </div>
-          <nav className="flex items-center gap-1">
-            <Link
-              href="/dashboard"
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              Loads
-            </Link>
-            {isAdmin ? (
-              <Link
-                href="/dashboard/admin"
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-              >
-                Admin
-              </Link>
-            ) : null}
-          </nav>
-          <div className="flex items-center gap-4">
-            <div className="text-right text-sm leading-tight">
-              <p className="font-medium text-slate-900">{operator.full_name}</p>
-              <p className="text-xs capitalize text-slate-600">{operator.role}</p>
+    <div className="min-h-screen bg-slate-50 antialiased">
+      <header className="border-b border-slate-200 bg-white shadow-xs">
+        <div className="mx-auto flex max-w-7xl flex-col sm:flex-row sm:items-center justify-between gap-3 px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-base font-bold tracking-tight text-slate-900">
+                Ramnath Logistics
+              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+                Operator Dashboard
+              </p>
             </div>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            <nav className="flex items-center gap-1 sm:hidden">
+              <Link
+                href="/dashboard"
+                className="rounded-md px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
               >
-                Sign out
-              </button>
-            </form>
+                Loads
+              </Link>
+              {isAdmin ? (
+                <Link
+                  href="/dashboard/admin"
+                  className="rounded-md px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Admin
+                </Link>
+              ) : null}
+            </nav>
+          </div>
+
+          <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 border-slate-100 pt-2 sm:pt-0">
+            <nav className="hidden sm:flex items-center gap-1">
+              <Link
+                href="/dashboard"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                Loads
+              </Link>
+              {isAdmin ? (
+                <Link
+                  href="/dashboard/admin"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  Admin
+                </Link>
+              ) : null}
+            </nav>
+
+            <div className="flex items-center gap-3 ml-auto">
+              <div className="text-right text-xs sm:text-sm leading-tight">
+                <p className="font-semibold text-slate-900 truncate max-w-[120px] sm:max-w-none">{operator.full_name}</p>
+                <p className="text-[11px] capitalize text-slate-500">{operator.role}</p>
+              </div>
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="rounded-md border border-slate-300 bg-white px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </header>
       <Toaster richColors position="top-right" closeButton />
-      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-8 space-y-6">{children}</main>
     </div>
   )
 }
