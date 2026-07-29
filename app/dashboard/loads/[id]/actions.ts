@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { sendNewLoadAlerts } from '@/lib/notifications/new-load-alert'
+import { sendTwilioLoadAlerts } from '@/lib/notifications/twilio-load-alert'
 
 export type AwardErrorCode =
   | 'CONCURRENT_AWARD'
@@ -354,7 +355,16 @@ export async function placeManualBidAction(
 export async function broadcastWhatsAppAlertAction(loadId: string) {
   await requireOperator()
   if (!loadId) throw new Error('loadId is required.')
-  const summary = await sendNewLoadAlerts(loadId)
+
+  const provider = process.env.WHATSAPP_PROVIDER ?? 'twilio'
+  let summary
+
+  if (provider === 'interakt') {
+    summary = await sendNewLoadAlerts(loadId)
+  } else {
+    summary = await sendTwilioLoadAlerts(loadId)
+  }
+
   revalidatePath(`/dashboard/loads/${loadId}`)
   return summary
 }
