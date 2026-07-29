@@ -251,13 +251,21 @@ export default async function TruckerLoadsPage() {
             <span className="capitalize">{trucker.truck_type}</span> truck
           </p>
         </div>
-        <Link
-          href="/t/logout"
-          prefetch={false}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Sign out
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/t/settings"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            ⚙️ Settings
+          </Link>
+          <Link
+            href="/t/logout"
+            prefetch={false}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            Sign out
+          </Link>
+        </div>
       </header>
 
       {isSuspended ? (

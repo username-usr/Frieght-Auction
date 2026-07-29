@@ -11,6 +11,7 @@ import type { TruckType, TruckerStatus } from '@/lib/types'
 export type CurrentTrucker = {
   id: string
   phone_e164: string
+  secondary_phone: string | null
   full_name: string | null
   truck_type: TruckType
   home_base_city: string | null
@@ -39,7 +40,7 @@ export const getTrucker = cache(async (): Promise<CurrentTrucker | null> => {
   const { data, error } = await supabase
     .from('truckers')
     .select(
-      'id, phone_e164, full_name, truck_type, home_base_city, status, archived_at'
+      'id, phone_e164, secondary_phone, full_name, truck_type, home_base_city, status, archived_at'
     )
     .eq('id', session.truckerId)
     .maybeSingle()
