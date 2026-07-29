@@ -29,7 +29,8 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-50 antialiased">
       <header className="border-b border-slate-200 bg-white shadow-xs">
-        <div className="mx-auto flex max-w-7xl flex-col sm:flex-row sm:items-center justify-between gap-3 px-3 sm:px-6 py-3 sm:py-4">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 py-3 space-y-3">
+          {/* Top Row: Brand & Title on left, Admin User Profile & Sign Out on right */}
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-base font-bold tracking-tight text-slate-900">
@@ -39,45 +40,10 @@ export default async function DashboardLayout({
                 Operator Dashboard
               </p>
             </div>
-            <nav className="flex items-center gap-1 sm:hidden">
-              <Link
-                href="/dashboard"
-                className="rounded-md px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Loads
-              </Link>
-              {isAdmin ? (
-                <Link
-                  href="/dashboard/admin"
-                  className="rounded-md px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Admin
-                </Link>
-              ) : null}
-            </nav>
-          </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 border-slate-100 pt-2 sm:pt-0">
-            <nav className="hidden sm:flex items-center gap-1">
-              <Link
-                href="/dashboard"
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Loads
-              </Link>
-              {isAdmin ? (
-                <Link
-                  href="/dashboard/admin"
-                  className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                >
-                  Admin
-                </Link>
-              ) : null}
-            </nav>
-
-            <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-3">
               <div className="text-right text-xs sm:text-sm leading-tight">
-                <p className="font-semibold text-slate-900 truncate max-w-[120px] sm:max-w-none">{operator.full_name}</p>
+                <p className="font-semibold text-slate-900 truncate max-w-[130px] sm:max-w-none">{operator.full_name}</p>
                 <p className="text-[11px] capitalize text-slate-500">{operator.role}</p>
               </div>
               <form action={signOut}>
@@ -89,6 +55,24 @@ export default async function DashboardLayout({
                 </button>
               </form>
             </div>
+          </div>
+
+          {/* Bottom Row: Loads & Admin Navigation Tabs below */}
+          <div className="border-t border-slate-100 pt-2 flex items-center gap-1">
+            <Link
+              href="/dashboard"
+              className="rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              Loads
+            </Link>
+            {isAdmin ? (
+              <Link
+                href="/dashboard/admin"
+                className="rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                Admin
+              </Link>
+            ) : null}
           </div>
         </div>
       </header>
