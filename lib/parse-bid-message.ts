@@ -28,14 +28,26 @@ export type ParsedBidMessage = {
 }
 
 export function parseBidMessage(text: string): ParsedBidMessage {
-  const upper = (text ?? '').toUpperCase()
+  const upper = (text ?? '').toUpperCase().trim()
 
-  // Alphanumeric tokens only; punctuation is a separator.
-  const tokens = upper.match(/[A-Z0-9]+/g) ?? []
+  // Match all potential alphanumeric/hyphenated reference code tokens (e.g., "7K2M", "LOAD-2026-089", "LOAD-001")
+  const rawTokens = upper.match(/[A-Z0-9-]+/g) ?? []
 
-  const refCandidates = tokens.filter(
-    (t) => REF_ALPHABET.test(t) && HAS_LETTER.test(t)
-  )
+  // Filter reference candidates
+  const refCandidates: string[] = []
+  for (const t of rawTokens) {
+    const clean = t.replace(/[^A-Z0-9-]/g, '')
+    if (!clean) continue
+    // Matches 4-char codes (7K2M), LOAD-prefixed codes (LOAD-2026-089), or 4-12 char alphanumeric codes
+    if (
+      (clean.length === 4 && HAS_LETTER.test(clean)) ||
+      clean.startsWith('LOAD') ||
+      (clean.length >= 4 && clean.length <= 16 && /[A-Z]/.test(clean) && /\d/.test(clean))
+    ) {
+      refCandidates.push(clean)
+    }
+  }
+
   const refCode = refCandidates[0] ?? null
 
   // Remove the chosen code before hunting for the amount so its digits can't be

@@ -36,10 +36,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!truckerId) {
       console.warn(`[twilio-webhook] Unknown trucker phone ${fromPhone}; logging only`)
       await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid })
-      return new Response('<Response></Response>', {
-        headers: { 'Content-Type': 'text/xml' },
-        status: 200,
-      })
+      return twimlReply('⚠️ Your phone number is not registered on the Ram-Nath Freight Bidding Platform.')
     }
 
     // 2. Parse bid message text
@@ -47,26 +44,20 @@ export async function POST(request: Request): Promise<Response> {
     if (parsed.refCandidates.length === 0) {
       console.warn(`[twilio-webhook] No reference code candidates found in "${messageText}"`)
       await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid })
-      return new Response('<Response></Response>', {
-        headers: { 'Content-Type': 'text/xml' },
-        status: 200,
-      })
+      return twimlReply('⚠️ Please include a valid load reference code (e.g., A3JK 24000).')
     }
 
     // 3. Resolve load by reference code
     const { data: loads } = await admin
       .from('loads')
-      .select('id, status')
+      .select('id, reference_code, status')
       .in('reference_code', parsed.refCandidates)
 
     const load = loads?.[0] ?? null
     if (!load) {
       console.warn(`[twilio-webhook] Ref code ${parsed.refCandidates.join('/')} matches no load`)
       await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid })
-      return new Response('<Response></Response>', {
-        headers: { 'Content-Type': 'text/xml' },
-        status: 200,
-      })
+      return twimlReply(`⚠️ Load reference code ${parsed.refCandidates[0]} not found.`)
     }
 
     const loadId = load.id as string
@@ -82,19 +73,13 @@ export async function POST(request: Request): Promise<Response> {
     if (!vis) {
       console.warn(`[twilio-webhook] Load ${loadId} not visible to trucker ${truckerId}`)
       await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid, relatedLoadId: loadId })
-      return new Response('<Response></Response>', {
-        headers: { 'Content-Type': 'text/xml' },
-        status: 200,
-      })
+      return twimlReply(`⚠️ Load #${load.reference_code} is not assigned to your trucker profile.`)
     }
 
     if (parsed.amountRupees === null) {
       console.warn(`[twilio-webhook] Invalid bid amount in "${messageText}"`)
       await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid, relatedLoadId: loadId })
-      return new Response('<Response></Response>', {
-        headers: { 'Content-Type': 'text/xml' },
-        status: 200,
-      })
+      return twimlReply(`⚠️ Invalid bid amount in "${messageText}". Please reply like: ${load.reference_code} 24000`)
     }
 
     // 5. Place bid via RPC
@@ -108,10 +93,7 @@ export async function POST(request: Request): Promise<Response> {
     if (error) {
       console.warn(`[twilio-webhook] Bid placement failed: ${error.message}`)
       await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid, relatedLoadId: loadId })
-      return new Response('<Response></Response>', {
-        headers: { 'Content-Type': 'text/xml' },
-        status: 200,
-      })
+      return twimlReply(`⚠️ Bid failed: ${error.message}`)
     }
 
     console.log(`[twilio-webhook] Bid ${bidId} successfully placed on load ${loadId} (₹${parsed.amountRupees})`)
@@ -125,18 +107,29 @@ export async function POST(request: Request): Promise<Response> {
       relatedBidId: bidId as string,
     })
 
-    // Return empty TwiML response
-    return new Response('<Response></Response>', {
-      headers: { 'Content-Type': 'text/xml' },
-      status: 200,
-    })
+    // Return instant confirmation TwiML reply
+    return twimlReply(`✅ Bid of ₹${parsed.amountRupees.toLocaleString('en-IN')} received for Load #${load.reference_code}!`)
   } catch (err) {
     console.error('[twilio-webhook] Processing error:', err)
-    return new Response('<Response></Response>', {
-      headers: { 'Content-Type': 'text/xml' },
-      status: 200,
-    })
+    return twimlReply('⚠️ System error processing your bid.')
   }
+}
+
+function twimlReply(message: string): Response {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(message)}</Message></Response>`
+  return new Response(xml, {
+    headers: { 'Content-Type': 'text/xml' },
+    status: 200,
+  })
+}
+
+function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
 }
 
 async function logInbound(

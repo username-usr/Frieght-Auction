@@ -26,8 +26,11 @@ export async function sendTwilioWhatsAppMessage(
   }
 
   // Format Twilio WhatsApp numbers: must be prefixed with "whatsapp:"
-  const cleanTo = args.toPhone.startsWith('whatsapp:') ? args.toPhone : `whatsapp:${args.toPhone}`
-  const cleanFrom = fromNumber.startsWith('whatsapp:') ? fromNumber : `whatsapp:${fromNumber}`
+  const rawFrom = fromNumber.replace('whatsapp:', '').trim()
+  const rawTo = args.toPhone.replace('whatsapp:', '').trim()
+
+  const cleanFrom = `whatsapp:${rawFrom.startsWith('+') ? rawFrom : `+${rawFrom}`}`
+  const cleanTo = `whatsapp:${rawTo.startsWith('+') ? rawTo : `+${rawTo}`}`
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
   const authHeader = `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`
