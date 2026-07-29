@@ -492,8 +492,8 @@ export function BidsTableRealtime({ loadId, loadStatus, initialBids, referencePr
               No bids match your search query &quot;{searchQuery}&quot;.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm scrollbar-thin">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
                   <tr>
                     <th className="px-4 py-3 text-left">Rank</th>

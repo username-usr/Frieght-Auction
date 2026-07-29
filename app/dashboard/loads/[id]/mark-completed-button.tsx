@@ -56,11 +56,14 @@ export function MarkCompletedButton({ loadId }: Props) {
       disabled={isPending}
       className={
         confirming
-          ? 'rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60'
-          : 'rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60'
+          ? 'inline-flex items-center gap-1.5 h-9 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-60 transition-colors'
+          : 'inline-flex items-center gap-1.5 h-9 rounded-md bg-blue-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 shadow-sm disabled:cursor-not-allowed disabled:opacity-60 transition-colors'
       }
     >
-      {isPending ? 'Saving…' : confirming ? 'Confirm?' : 'Mark as completed'}
+      <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+      {isPending ? 'Saving…' : confirming ? 'Confirm completion?' : 'Mark completed'}
     </button>
   )
 }
