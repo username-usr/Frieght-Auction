@@ -213,18 +213,34 @@ export default async function TruckerLoadDetailPage({
         // Awarded but not yet accepted — show the Accept/Decline panel.
         <AcceptAwardForm loadId={load.id} />
       ) : acceptedByMe ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-          <p className="font-semibold">
-            ✅ You accepted this load
-            {load.accepted_at
-              ? ` on ${formatAbsoluteIST(load.accepted_at)}`
-              : ''}
-          </p>
-          <p className="mt-1 text-xs">
-            Pickup by {formatAbsoluteIST(load.pickup_deadline)}. Fill in your
-            truck and driver details below — they help the operator track
-            the load.
-          </p>
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900 space-y-3">
+          <div>
+            <p className="font-semibold flex items-center gap-1.5">
+              <svg className="h-4 w-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              You accepted this load
+              {load.accepted_at
+                ? ` on ${formatAbsoluteIST(load.accepted_at)}`
+                : ''}
+            </p>
+            <p className="mt-1 text-xs text-green-800">
+              Pickup by {formatAbsoluteIST(load.pickup_deadline)}. Fill in your
+              truck and driver details below — they help the operator track
+              the load.
+            </p>
+          </div>
+          <div>
+            <Link
+              href={`/t/loads/${load.id}/gatepass`}
+              className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors"
+            >
+              <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              View Official Warehouse Gate Pass
+            </Link>
+          </div>
         </div>
       ) : completedForMe ? (
         <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm text-slate-800">
@@ -495,6 +511,7 @@ export default async function TruckerLoadDetailPage({
             <PlaceBidForm
               loadId={load.id}
               existingAmountPaise={ownActiveBid?.amount_paise ?? null}
+              lowBidPaise={lowBid}
               disabledReason={
                 isSuspended ? 'Your account is suspended.' : null
               }
@@ -510,6 +527,34 @@ export default async function TruckerLoadDetailPage({
           This load is no longer open for bidding.
         </div>
       )}
+      {/* Call Dispatcher & WhatsApp Support Action Bar */}
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Operator & Dispatcher Assistance
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href="tel:+919876543210"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+            </svg>
+            Call Dispatcher
+          </a>
+          <a
+            href={`https://wa.me/${(process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886').replace(/[^0-9]/g, '')}?text=Query%20on%20Load%20%23${load.reference_code}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
+          >
+            <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+            </svg>
+            WhatsApp Support
+          </a>
+        </div>
+      </section>
     </div>
   )
 }

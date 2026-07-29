@@ -9,16 +9,14 @@ import { formatINR } from '@/lib/format'
 type Props = {
   loadId: string
   existingAmountPaise: number | null
-  // If set, the bid input stays visible (so the trucker can see their last
-  // amount) but the submit button is replaced with this message. Used when
-  // the trucker is suspended (status='blocked') — the DB also rejects via
-  // place_trucker_bid, so this is for UX, not security.
+  lowBidPaise?: number | null
   disabledReason?: string | null
 }
 
 export function PlaceBidForm({
   loadId,
   existingAmountPaise,
+  lowBidPaise,
   disabledReason,
 }: Props) {
   const initialRupees =
@@ -71,6 +69,44 @@ export function PlaceBidForm({
         <p className="mt-2 text-xs text-slate-500">
           Required. Whole rupees only. Lowest bid wins when the load is awarded.
         </p>
+
+        {lowBidPaise && lowBidPaise > 0 ? (
+          <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
+              ⚡ Quick 1-Tap Undercut Actions
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={isSubmitting || !!disabledReason}
+                onClick={() => setRupees(String(lowBidPaise / 100))}
+                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-900 hover:bg-blue-100 transition-colors"
+              >
+                Match Lowest (₹{(lowBidPaise / 100).toLocaleString('en-IN')})
+              </button>
+              {lowBidPaise > 50000 && (
+                <button
+                  type="button"
+                  disabled={isSubmitting || !!disabledReason}
+                  onClick={() => setRupees(String((lowBidPaise - 50000) / 100))}
+                  className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 transition-colors"
+                >
+                  Drop ₹500 (₹{((lowBidPaise - 50000) / 100).toLocaleString('en-IN')})
+                </button>
+              )}
+              {lowBidPaise > 100000 && (
+                <button
+                  type="button"
+                  disabled={isSubmitting || !!disabledReason}
+                  onClick={() => setRupees(String((lowBidPaise - 100000) / 100))}
+                  className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors"
+                >
+                  Drop ₹1,000 (₹{((lowBidPaise - 100000) / 100).toLocaleString('en-IN')})
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
       {disabledReason ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
