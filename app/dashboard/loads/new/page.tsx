@@ -60,7 +60,7 @@ export default async function NewLoadPage() {
   }))
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-7">
       <div>
         <Link
           href="/dashboard"
@@ -68,11 +68,17 @@ export default async function NewLoadPage() {
         >
           ← Back to loads
         </Link>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+        <p className="mb-2 mt-6 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700">
+          Create shipment
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
           New load
-        </h2>
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Add the route, cargo, deadline, and invited truckers.
+        </p>
       </div>
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-7">
         <NewLoadForm
           productOptions={(products.data ?? []) as LookupOption[]}
           containerOptions={(containers.data ?? []) as LookupOption[]}

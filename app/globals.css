@@ -1,26 +1,138 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f6f3;
+  --foreground: #262525;
+  --brand-red: #d82927;
+  --brand-red-dark: #951b1a;
+  --brand-charcoal: #333232;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* Ram-Nath brand neutrals: warmer and quieter than Tailwind slate. */
+  --color-slate-50: #faf9f7;
+  --color-slate-100: #f2f0ed;
+  --color-slate-200: #e5e2de;
+  --color-slate-300: #d3cfca;
+  --color-slate-400: #99938d;
+  --color-slate-500: #746f6a;
+  --color-slate-600: #5d5955;
+  --color-slate-700: #474441;
+  --color-slate-800: #343230;
+  --color-slate-900: #242322;
+
+  /* Existing blue product actions now resolve to the Ram-Nath red family. */
+  --color-blue-50: #fff4f3;
+  --color-blue-100: #ffe3e1;
+  --color-blue-200: #ffc9c5;
+  --color-blue-300: #f89c96;
+  --color-blue-400: #ee665f;
+  --color-blue-500: #e33e37;
+  --color-blue-600: #d82927;
+  --color-blue-700: #bd211f;
+  --color-blue-800: #a21d1b;
+  --color-blue-900: #8a1b1a;
+
+  --radius-md: 0.7rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.35rem;
+  --shadow-xs: 0 1px 2px rgb(42 36 33 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(42 36 33 / 0.05), 0 8px 24px rgb(42 36 33 / 0.035);
+  --shadow-lg: 0 20px 50px rgb(42 36 33 / 0.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
+  min-width: 320px;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #f5b4b0;
+  color: #591110;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+button:not(:disabled),
+select:not(:disabled),
+input[type='checkbox']:not(:disabled) {
+  cursor: pointer;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--brand-red);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--brand-red) !important;
+  box-shadow: 0 0 0 3px rgb(216 41 39 / 0.1) !important;
+}
+
+:focus-visible {
+  outline-color: var(--brand-red);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

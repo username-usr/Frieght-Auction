@@ -26,7 +26,7 @@ export default async function NewUserPage() {
           you set below.
         </p>
       </div>
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <NewUserForm zones={zones} />
       </div>
     </div>

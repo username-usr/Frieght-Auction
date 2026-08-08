@@ -12,8 +12,9 @@ export default async function SetPasswordPage({
   if (!phone) redirect('/t/login')
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div>
+        <div className="mb-6 h-1 w-10 rounded-full bg-blue-600" />
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Set your password
         </h1>

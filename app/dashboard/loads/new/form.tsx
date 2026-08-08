@@ -39,7 +39,7 @@ const WEIGHT_UNITS: { value: WeightUnit; label: string }[] = [
 ]
 
 const FIELD =
-  'mt-1 block w-full rounded-md border-2 border-slate-400 px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-500 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50'
+  'mt-1 block w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900 disabled:cursor-not-allowed disabled:bg-slate-100'
 const LABEL = 'block text-sm font-medium text-slate-700'
 const ERROR = 'mt-1 text-xs text-red-700'
 
@@ -142,6 +142,7 @@ export function NewLoadForm({
   const [selectedTruckerIds, setSelectedTruckerIds] = useState<Set<string>>(
     () => new Set()
   )
+  const [truckerSearch, setTruckerSearch] = useState('')
   const [isPending, startTransition] = useTransition()
 
   function addDestination() {
@@ -172,9 +173,38 @@ export function NewLoadForm({
     () => matchingTruckers.filter((t) => t.status === 'active'),
     [matchingTruckers]
   )
-  const suspendedMatching = useMemo(
-    () => matchingTruckers.filter((t) => t.status === 'blocked'),
-    [matchingTruckers]
+  const filteredMatchingTruckers = useMemo(() => {
+    const query = truckerSearch.toLocaleLowerCase().trim()
+    if (!query) return matchingTruckers
+
+    const queryDigits = query.replace(/\D/g, '')
+    return matchingTruckers.filter((trucker) => {
+      const searchableText = [
+        trucker.full_name ?? 'unnamed trucker',
+        trucker.phone_e164,
+        trucker.secondary_phone ?? '',
+        trucker.truck_type,
+      ]
+        .join(' ')
+        .toLocaleLowerCase()
+
+      if (searchableText.includes(query)) return true
+      if (!queryDigits) return false
+
+      const phoneDigits = `${trucker.phone_e164} ${trucker.secondary_phone ?? ''}`.replace(
+        /\D/g,
+        ''
+      )
+      return phoneDigits.includes(queryDigits)
+    })
+  }, [matchingTruckers, truckerSearch])
+  const filteredActiveMatching = useMemo(
+    () => filteredMatchingTruckers.filter((t) => t.status === 'active'),
+    [filteredMatchingTruckers]
+  )
+  const filteredSuspendedMatching = useMemo(
+    () => filteredMatchingTruckers.filter((t) => t.status === 'blocked'),
+    [filteredMatchingTruckers]
   )
 
   // Reset selection when the truck type changes — the matching pool just
@@ -182,6 +212,8 @@ export function NewLoadForm({
   // active trucker who matches (suspended truckers start unchecked, per
   // brief).
   useEffect(() => {
+    // Intentional reset: changing truck type replaces the eligible pool.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTruckerIds(new Set(activeMatching.map((t) => t.id)))
   }, [activeMatching])
 
@@ -194,12 +226,20 @@ export function NewLoadForm({
     })
   }
 
-  function selectAllMatching() {
-    setSelectedTruckerIds(new Set(matchingTruckers.map((t) => t.id)))
+  function selectAllVisible() {
+    setSelectedTruckerIds((prev) => {
+      const next = new Set(prev)
+      filteredMatchingTruckers.forEach((trucker) => next.add(trucker.id))
+      return next
+    })
   }
 
-  function deselectAll() {
-    setSelectedTruckerIds(new Set())
+  function deselectAllVisible() {
+    setSelectedTruckerIds((prev) => {
+      const next = new Set(prev)
+      filteredMatchingTruckers.forEach((trucker) => next.delete(trucker.id))
+      return next
+    })
   }
 
   function updateItem(idx: number, patch: Partial<ItemDraft>) {
@@ -492,7 +532,7 @@ export function NewLoadForm({
           return (
             <div
               key={item.rowKey}
-              className="space-y-4 rounded-md border border-slate-200 bg-slate-50/40 p-4"
+              className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:p-5"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
@@ -668,7 +708,7 @@ export function NewLoadForm({
           type="button"
           disabled={isPending}
           onClick={addItem}
-          className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           + Add stock item
         </button>
@@ -694,22 +734,68 @@ export function NewLoadForm({
           </div>
         ) : (
           <>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[240px] flex-1">
+                <label htmlFor="trucker-search" className="sr-only">
+                  Search truckers
+                </label>
+                <svg
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="m21 21-4.35-4.35m2.35-5.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                  />
+                </svg>
+                <input
+                  id="trucker-search"
+                  type="text"
+                  autoComplete="off"
+                  disabled={isPending}
+                  value={truckerSearch}
+                  onChange={(event) => setTruckerSearch(event.target.value)}
+                  placeholder="Search by name, phone, or truck type..."
+                  className="block w-full rounded-md border border-slate-300 bg-slate-50 py-2.5 pl-9 pr-16 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900 disabled:cursor-not-allowed disabled:bg-slate-100"
+                />
+                {truckerSearch ? (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => setTruckerSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-900 disabled:cursor-not-allowed"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+              <span className="text-xs text-slate-500" aria-live="polite">
+                {filteredMatchingTruckers.length} of {matchingTruckers.length}{' '}
+                truckers
+              </span>
+            </div>
+
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <button
                 type="button"
-                disabled={isPending}
-                onClick={selectAllMatching}
+                disabled={isPending || filteredMatchingTruckers.length === 0}
+                onClick={selectAllVisible}
                 className="rounded-md border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Select all
+                {truckerSearch.trim() ? 'Select results' : 'Select all'}
               </button>
               <button
                 type="button"
-                disabled={isPending}
-                onClick={deselectAll}
+                disabled={isPending || filteredMatchingTruckers.length === 0}
+                onClick={deselectAllVisible}
                 className="rounded-md border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Deselect all
+                {truckerSearch.trim() ? 'Deselect results' : 'Deselect all'}
               </button>
               <p className="text-slate-500">
                 Suspended truckers can be invited but can&apos;t bid until
@@ -717,32 +803,45 @@ export function NewLoadForm({
               </p>
             </div>
 
-            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
-              {activeMatching.map((t) => (
-                <TruckerCheckbox
-                  key={t.id}
-                  trucker={t}
-                  checked={selectedTruckerIds.has(t.id)}
-                  disabled={isPending}
-                  onToggle={() => toggleTrucker(t.id)}
-                />
-              ))}
-              {suspendedMatching.length > 0 ? (
-                <li className="bg-slate-50 px-3 py-2 text-xs font-medium uppercase tracking-wider text-slate-500">
-                  Suspended
-                </li>
-              ) : null}
-              {suspendedMatching.map((t) => (
-                <TruckerCheckbox
-                  key={t.id}
-                  trucker={t}
-                  checked={selectedTruckerIds.has(t.id)}
-                  disabled={isPending}
-                  onToggle={() => toggleTrucker(t.id)}
-                  suspended
-                />
-              ))}
-            </ul>
+            {filteredMatchingTruckers.length === 0 ? (
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">
+                <p>No truckers match &quot;{truckerSearch.trim()}&quot;.</p>
+                <button
+                  type="button"
+                  onClick={() => setTruckerSearch('')}
+                  className="mt-2 font-medium text-blue-900 hover:underline"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
+                {filteredActiveMatching.map((t) => (
+                  <TruckerCheckbox
+                    key={t.id}
+                    trucker={t}
+                    checked={selectedTruckerIds.has(t.id)}
+                    disabled={isPending}
+                    onToggle={() => toggleTrucker(t.id)}
+                  />
+                ))}
+                {filteredSuspendedMatching.length > 0 ? (
+                  <li className="bg-slate-50 px-3 py-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Suspended
+                  </li>
+                ) : null}
+                {filteredSuspendedMatching.map((t) => (
+                  <TruckerCheckbox
+                    key={t.id}
+                    trucker={t}
+                    checked={selectedTruckerIds.has(t.id)}
+                    disabled={isPending}
+                    onToggle={() => toggleTrucker(t.id)}
+                    suspended
+                  />
+                ))}
+              </ul>
+            )}
           </>
         )}
 
@@ -796,7 +895,7 @@ export function NewLoadForm({
         <button
           type="submit"
           disabled={submitDisabled}
-          className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? 'Posting…' : 'Post load'}
         </button>

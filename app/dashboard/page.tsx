@@ -149,18 +149,27 @@ export default async function LoadsPage({
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <Suspense fallback={null}>
         <PostedToast />
       </Suspense>
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Loads
-        </h2>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700">
+            Operations
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            Loads
+          </h1>
+          <p className="mt-2 hidden text-sm text-slate-600 sm:block">
+            Track every shipment from posting to completion.
+          </p>
+        </div>
         <Link
           href="/dashboard/loads/new"
-          className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 sm:px-5"
         >
+          <span aria-hidden="true" className="text-lg leading-none">+</span>
           New load
         </Link>
       </div>

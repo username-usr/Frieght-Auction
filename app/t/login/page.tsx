@@ -58,10 +58,14 @@ export default function TruckerLoginPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-        Sign in
+    <div className="mx-auto max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="mb-7 h-1 w-10 rounded-full bg-blue-600" />
+      <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+        Welcome, partner
       </h1>
+      <p className="mb-7 mt-2 text-sm leading-6 text-slate-600">
+        Sign in to view available loads and manage your bids.
+      </p>
 
       {stage === 'phone' ? (
         <form onSubmit={handlePhoneSubmit} className="space-y-4">
@@ -83,7 +87,7 @@ export default function TruckerLoginPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+919900000001"
-              className="mt-1 block h-12 w-full rounded-md border-2 border-slate-400 px-3 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+              className="mt-1 block h-12 w-full rounded-md border border-slate-300 bg-slate-50 px-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
             />
             <p className="mt-2 text-xs text-slate-500">
               Required. Use international format, e.g. +919900000001
@@ -133,7 +137,7 @@ export default function TruckerLoginPage() {
                 autoFocus
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block h-12 w-full rounded-md border-2 border-slate-400 py-2 pl-3 pr-10 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="block h-12 w-full rounded-md border border-slate-300 bg-slate-50 py-2 pl-3 pr-10 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
               />
               <button
                 type="button"

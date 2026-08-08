@@ -2,8 +2,11 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Ramnath Logistics',
-  description: 'Freight bidding dashboard',
+  title: {
+    default: 'Ram-Nath Logistics',
+    template: '%s · Ram-Nath Logistics',
+  },
+  description: 'Freight operations and bidding platform',
 }
 
 export default function RootLayout({

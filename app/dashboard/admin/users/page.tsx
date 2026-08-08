@@ -69,7 +69,7 @@ export default async function UsersAdminPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
         <p className="text-sm text-slate-600">
           Manage operator and admin accounts. Archived accounts can&apos;t
           sign in; archiving is reversible. You can&apos;t archive or
@@ -77,7 +77,7 @@ export default async function UsersAdminPage() {
         </p>
         <Link
           href="/dashboard/admin/users/new"
-          className="shrink-0 rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800"
+          className="shrink-0 rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800"
         >
           Add user
         </Link>
@@ -130,7 +130,7 @@ function Section({
   variant: 'active' | 'archived'
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-6 py-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-600">
           {title} ({rows.length})

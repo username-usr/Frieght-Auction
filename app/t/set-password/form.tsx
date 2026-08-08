@@ -46,7 +46,7 @@ export function SetPasswordForm({ phone }: { phone: string }) {
             minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="block h-12 w-full rounded-md border-2 border-slate-400 py-2 pl-3 pr-10 text-base text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+            className="block h-12 w-full rounded-md border border-slate-300 bg-slate-50 py-2 pl-3 pr-10 text-base text-slate-900 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
           />
           <button
             type="button"
@@ -113,7 +113,7 @@ export function SetPasswordForm({ phone }: { phone: string }) {
             minLength={6}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="block h-12 w-full rounded-md border-2 border-slate-400 py-2 pl-3 pr-10 text-base text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+            className="block h-12 w-full rounded-md border border-slate-300 bg-slate-50 py-2 pl-3 pr-10 text-base text-slate-900 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
           />
           <button
             type="button"

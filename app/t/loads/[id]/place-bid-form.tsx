@@ -64,7 +64,7 @@ export function PlaceBidForm({
           value={rupees}
           onChange={(e) => setRupees(e.target.value)}
           placeholder="13000"
-          className="mt-1 block h-12 w-full rounded-md border-2 border-slate-400 px-3 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+          className="mt-1 block h-12 w-full rounded-md border border-slate-300 bg-slate-50 px-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
         />
         <p className="mt-2 text-xs text-slate-500">
           Required. Whole rupees only. Lowest bid wins when the load is awarded.

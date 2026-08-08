@@ -81,7 +81,7 @@ export default async function EditVisibilityPage({
             Visibility is locked
           </h2>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <p className="text-sm text-slate-700">
             This load is no longer open — visibility can only be edited
             while a load is accepting bids.
@@ -158,7 +158,7 @@ export default async function EditVisibilityPage({
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <VisibilityForm
           loadId={load.id}
           truckTypeRequired={load.truck_type_required}

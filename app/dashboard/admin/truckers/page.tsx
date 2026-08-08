@@ -53,7 +53,7 @@ export default async function TruckersAdminPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
         <p className="text-sm text-slate-600">
           Manage truckers and their bidding access. Suspended truckers stay
           signed in but can&apos;t place bids. Archived truckers can&apos;t
@@ -61,7 +61,7 @@ export default async function TruckersAdminPage() {
         </p>
         <Link
           href="/dashboard/admin/truckers/new"
-          className="shrink-0 rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800"
+          className="shrink-0 rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800"
         >
           Add trucker
         </Link>
@@ -98,7 +98,7 @@ function Section({
   variant: SectionVariant
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-6 py-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-600">
           {title} ({rows.length})

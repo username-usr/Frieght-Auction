@@ -65,7 +65,7 @@ export default async function EditUserPage({
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <dl className="mb-6 text-xs">
           <dt className="font-medium uppercase tracking-wider text-slate-500">
             Archived

@@ -1,24 +1,28 @@
 import { Toaster } from 'sonner'
+import { BrandMark } from '@/components/brand-mark'
 
-// Root layout for the trucker preview portal. Unlike /dashboard, this
-// layout does NOT enforce auth — the login and set-password pages live
-// underneath it and need to render without a session. Per-page guards
-// (requireTrucker() in lib/trucker.ts) protect the authenticated pages.
-
+// Root layout for the trucker portal. Per-page guards protect authenticated
+// routes because login and first-time password setup also live under /t.
 export default function TruckerLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-slate-50 antialiased selection:bg-slate-900 selection:text-white">
-      <div className="bg-amber-200 text-amber-950">
-        <div className="mx-auto max-w-2xl px-3 sm:px-6 py-2 text-center text-[11px] sm:text-xs font-semibold uppercase tracking-widest">
-          Trucker Portal — Live Platform
+    <div className="min-h-screen bg-slate-50 antialiased">
+      <div className="h-1 bg-blue-600" />
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex min-h-17 max-w-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <BrandMark href="/t/loads" label="Trucker portal" priority compact />
+          <span className="rounded-full bg-green-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-green-800">
+            Live
+          </span>
         </div>
-      </div>
+      </header>
       <Toaster richColors position="top-center" closeButton />
-      <main className="mx-auto w-full max-w-2xl px-3 sm:px-6 py-4 sm:py-6 space-y-5">{children}</main>
+      <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
+        {children}
+      </main>
     </div>
   )
 }

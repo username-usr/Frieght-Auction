@@ -67,7 +67,7 @@ export default async function EditTruckerPage({
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
           <div>
             <dt className="font-medium uppercase tracking-wider text-slate-500">
