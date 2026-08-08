@@ -55,15 +55,21 @@ export function EditUserForm({
 
     startTransition(async () => {
       try {
-        await updateOperatorAction(id, {
+        const result = await updateOperatorAction(id, {
           full_name: trimmed,
           role,
           zone_id: zoneId === '' ? null : zoneId,
         })
+        if (!result.ok) {
+          if (result.field === 'full_name') setNameError(result.error)
+          toast.error(result.error)
+          return
+        }
         toast.success('User updated.')
         router.push('/dashboard/admin/users')
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to update user.')
+        console.error('[EditUserForm.handleSubmit]', err)
+        toast.error('Could not update the user. Please try again.')
       }
     })
   }
@@ -94,7 +100,10 @@ export function EditUserForm({
           autoComplete="off"
           disabled={isPending}
           value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          onChange={(e) => {
+            setFullName(e.target.value)
+            if (nameError) setNameError(null)
+          }}
           className={FIELD}
         />
         {nameError ? (

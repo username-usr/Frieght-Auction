@@ -3,6 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { getOperatorContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import {
+  actionFailure,
+  actionSuccess,
+  ExpectedActionError,
+  type ActionResult,
+} from '@/lib/action-result'
 
 // Server actions for the zones admin sub-page.
 //
@@ -26,13 +32,16 @@ async function requireAdmin(): Promise<void> {
   }
 }
 
-export async function addZoneAction(rawName: string): Promise<ZoneRow> {
+async function addZone(rawName: string): Promise<ZoneRow> {
   await requireAdmin()
 
   const name = rawName.trim()
-  if (!name) throw new Error('Name is required.')
+  if (!name) throw new ExpectedActionError('Name is required.', 'name')
   if (name.length > 100) {
-    throw new Error('Name must be 100 characters or fewer.')
+    throw new ExpectedActionError(
+      'Name must be 100 characters or fewer.',
+      'name'
+    )
   }
 
   const supabase = await createClient()
@@ -49,7 +58,7 @@ export async function addZoneAction(rawName: string): Promise<ZoneRow> {
 
   if (existing) {
     if (existing.deleted_at === null) {
-      throw new Error(`"${name}" already exists.`)
+      throw new ExpectedActionError(`"${name}" already exists.`, 'name')
     }
     const { data, error } = await supabase
       .from('zones')
@@ -67,26 +76,44 @@ export async function addZoneAction(rawName: string): Promise<ZoneRow> {
     .insert({ name })
     .select('id, name, created_at')
     .single()
+  if (error?.code === '23505') {
+    throw new ExpectedActionError(`"${name}" already exists.`, 'name')
+  }
   if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard/admin/zones')
   return data as ZoneRow
 }
 
-export async function deleteZoneAction(id: string): Promise<void> {
-  await requireAdmin()
+export async function addZoneAction(
+  rawName: string
+): Promise<ActionResult<ZoneRow>> {
+  try {
+    return actionSuccess(await addZone(rawName))
+  } catch (error) {
+    return actionFailure(error, 'Could not add the zone.', 'addZoneAction')
+  }
+}
 
-  if (!id) throw new Error('id is required.')
+export async function deleteZoneAction(id: string): Promise<ActionResult<null>> {
+  try {
+    await requireAdmin()
 
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from('zones')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
-    .is('deleted_at', null)
-  if (error) throw new Error(error.message)
+    if (!id) throw new ExpectedActionError('Zone id is required.')
 
-  revalidatePath('/dashboard/admin/zones')
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('zones')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .is('deleted_at', null)
+    if (error) throw new Error(error.message)
+
+    revalidatePath('/dashboard/admin/zones')
+    return actionSuccess(null)
+  } catch (error) {
+    return actionFailure(error, 'Could not remove the zone.', 'deleteZoneAction')
+  }
 }
 
 // Restore action for a soft-deleted zone by id. Not wired to the current

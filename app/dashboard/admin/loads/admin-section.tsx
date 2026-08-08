@@ -2,14 +2,15 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import type { ActionResult } from '@/lib/action-result'
 import type { LookupRow } from './actions'
 
 type Props = {
   title: string
   placeholder: string
   rows: LookupRow[]
-  addAction: (name: string) => Promise<LookupRow>
-  deleteAction: (id: string) => Promise<void>
+  addAction: (name: string) => Promise<ActionResult<LookupRow>>
+  deleteAction: (id: string) => Promise<ActionResult<null>>
 }
 
 // Shared styling — matches the new-load form constants intentionally.
@@ -24,6 +25,7 @@ export function AdminSection({
   deleteAction,
 }: Props) {
   const [name, setName] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [isAdding, startAddTransition] = useTransition()
   const [, startDeleteTransition] = useTransition()
@@ -31,14 +33,24 @@ export function AdminSection({
   function handleAdd(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const trimmed = name.trim()
-    if (!trimmed) return
+    if (!trimmed) {
+      setNameError('Enter a name.')
+      return
+    }
+    setNameError(null)
     startAddTransition(async () => {
       try {
-        await addAction(trimmed)
+        const result = await addAction(trimmed)
+        if (!result.ok) {
+          setNameError(result.error)
+          toast.error(result.error)
+          return
+        }
         setName('')
         toast.success(`Added "${trimmed}"`)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to add.')
+        console.error('[AdminSection.handleAdd]', err)
+        toast.error('Could not add this entry. Please try again.')
       }
     })
   }
@@ -47,10 +59,15 @@ export function AdminSection({
     setPendingDeleteId(id)
     startDeleteTransition(async () => {
       try {
-        await deleteAction(id)
+        const result = await deleteAction(id)
+        if (!result.ok) {
+          toast.error(result.error)
+          return
+        }
         toast.success(`Removed "${label}"`)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to remove.')
+        console.error('[AdminSection.handleDelete]', err)
+        toast.error('Could not remove this entry. Please try again.')
       } finally {
         setPendingDeleteId(null)
       }
@@ -77,12 +94,22 @@ export function AdminSection({
               id={inputId}
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value)
+                if (nameError) setNameError(null)
+              }}
+              aria-invalid={nameError ? true : undefined}
+              aria-describedby={nameError ? `${inputId}-error` : undefined}
               placeholder={placeholder}
               disabled={isAdding}
               maxLength={100}
               className={FIELD}
             />
+            {nameError ? (
+              <p id={`${inputId}-error`} className="mt-1 text-xs text-red-700">
+                {nameError}
+              </p>
+            ) : null}
           </div>
           <button
             type="submit"

@@ -3,6 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { getOperatorContext } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  actionFailure,
+  actionSuccess,
+  ExpectedActionError,
+  type ActionResult,
+} from '@/lib/action-result'
 import type { OperatorRole } from '@/lib/types'
 
 // Server actions for the users admin sub-page.
@@ -42,15 +48,18 @@ async function requireAdmin() {
 
 function validateRole(value: string): asserts value is OperatorRole {
   if (!VALID_ROLES.includes(value as OperatorRole)) {
-    throw new Error('Role must be admin or operator.')
+    throw new ExpectedActionError('Role must be admin or operator.', 'role')
   }
 }
 
 function validateFullName(value: string): string {
   const trimmed = value.trim()
-  if (!trimmed) throw new Error('Full name is required.')
+  if (!trimmed) throw new ExpectedActionError('Full name is required.', 'full_name')
   if (trimmed.length > FULL_NAME_MAX) {
-    throw new Error(`Full name must be ${FULL_NAME_MAX} characters or fewer.`)
+    throw new ExpectedActionError(
+      `Full name must be ${FULL_NAME_MAX} characters or fewer.`,
+      'full_name'
+    )
   }
   return trimmed
 }
@@ -63,16 +72,21 @@ async function validateZoneId(
   supabase: ReturnType<typeof createAdminClient>
 ): Promise<string | null> {
   if (zoneId == null) return null
-  if (!UUID_RE.test(zoneId)) throw new Error('Invalid zone id.')
+  if (!UUID_RE.test(zoneId)) {
+    throw new ExpectedActionError('Choose a valid zone.', 'zone_id')
+  }
   const { data, error } = await supabase
     .from('zones')
     .select('id, deleted_at')
     .eq('id', zoneId)
     .maybeSingle()
   if (error) throw new Error(error.message)
-  if (!data) throw new Error('Zone not found.')
+  if (!data) throw new ExpectedActionError('The selected zone no longer exists.', 'zone_id')
   if (data.deleted_at != null) {
-    throw new Error('Zone is archived; pick an active zone.')
+    throw new ExpectedActionError(
+      'The selected zone is archived. Choose an active zone.',
+      'zone_id'
+    )
   }
   return zoneId
 }
@@ -85,17 +99,22 @@ export type AddOperatorInput = {
   password: string
 }
 
-export async function addOperatorAction(
+async function addOperator(
   input: AddOperatorInput
 ): Promise<OperatorRow> {
   await requireAdmin()
 
   const email = input.email.trim().toLowerCase()
-  if (!EMAIL_RE.test(email)) throw new Error('Enter a valid email address.')
+  if (!EMAIL_RE.test(email)) {
+    throw new ExpectedActionError('Enter a valid email address.', 'email')
+  }
   const fullName = validateFullName(input.full_name)
   validateRole(input.role)
   if (typeof input.password !== 'string' || input.password.length < PASSWORD_MIN) {
-    throw new Error(`Password must be at least ${PASSWORD_MIN} characters.`)
+    throw new ExpectedActionError(
+      `Password must be at least ${PASSWORD_MIN} characters.`,
+      'password'
+    )
   }
 
   const supabase = createAdminClient()
@@ -112,7 +131,10 @@ export async function addOperatorAction(
     })
   if (authError) {
     if (/already.*registered/i.test(authError.message)) {
-      throw new Error('A user with this email already exists.')
+      throw new ExpectedActionError(
+        'This email address is already registered.',
+        'email'
+      )
     }
     throw new Error(authError.message)
   }
@@ -146,13 +168,27 @@ export async function addOperatorAction(
   return data as OperatorRow
 }
 
+export async function addOperatorAction(
+  input: AddOperatorInput
+): Promise<ActionResult<OperatorRow>> {
+  try {
+    return actionSuccess(await addOperator(input))
+  } catch (error) {
+    return actionFailure(
+      error,
+      'Could not add the user. Please try again.',
+      'addOperatorAction'
+    )
+  }
+}
+
 export type UpdateOperatorInput = {
   full_name: string
   role: OperatorRole
   zone_id: string | null
 }
 
-export async function updateOperatorAction(
+async function updateOperator(
   id: string,
   input: UpdateOperatorInput
 ): Promise<OperatorRow> {
@@ -166,7 +202,7 @@ export async function updateOperatorAction(
   // direct API call too — losing the last admin is a one-way trip that
   // would require service-role intervention to fix.
   if (id === currentAdmin.id && input.role !== 'admin') {
-    throw new Error('Cannot demote yourself from admin.')
+    throw new ExpectedActionError('You cannot demote your own admin account.', 'role')
   }
 
   const supabase = createAdminClient()
@@ -187,6 +223,21 @@ export async function updateOperatorAction(
 
   revalidatePath('/dashboard/admin/users')
   return data as OperatorRow
+}
+
+export async function updateOperatorAction(
+  id: string,
+  input: UpdateOperatorInput
+): Promise<ActionResult<OperatorRow>> {
+  try {
+    return actionSuccess(await updateOperator(id, input))
+  } catch (error) {
+    return actionFailure(
+      error,
+      'Could not update the user. Please try again.',
+      'updateOperatorAction'
+    )
+  }
 }
 
 export async function archiveOperatorAction(id: string): Promise<void> {

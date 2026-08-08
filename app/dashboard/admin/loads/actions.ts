@@ -2,6 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import {
+  actionFailure,
+  actionSuccess,
+  ExpectedActionError,
+  type ActionResult,
+} from '@/lib/action-result'
 
 // All three lookup tables share an identical shape, so a single helper handles
 // the add/delete logic and the six exported actions are thin per-entity wrappers.
@@ -18,9 +24,12 @@ export type LookupRow = {
 
 async function addLookup(table: LookupTable, rawName: string): Promise<LookupRow> {
   const name = rawName.trim()
-  if (!name) throw new Error('Name is required.')
+  if (!name) throw new ExpectedActionError('Name is required.', 'name')
   if (name.length > 100) {
-    throw new Error('Name must be 100 characters or fewer.')
+    throw new ExpectedActionError(
+      'Name must be 100 characters or fewer.',
+      'name'
+    )
   }
 
   const supabase = await createClient()
@@ -37,7 +46,7 @@ async function addLookup(table: LookupTable, rawName: string): Promise<LookupRow
 
   if (existing) {
     if (existing.deleted_at === null) {
-      throw new Error(`"${name}" already exists.`)
+      throw new ExpectedActionError(`"${name}" already exists.`, 'name')
     }
     const { data, error } = await supabase
       .from(table)
@@ -55,6 +64,9 @@ async function addLookup(table: LookupTable, rawName: string): Promise<LookupRow
     .insert({ name })
     .select('id, name, created_at')
     .single()
+  if (error?.code === '23505') {
+    throw new ExpectedActionError(`"${name}" already exists.`, 'name')
+  }
   if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard/admin/loads')
@@ -75,23 +87,62 @@ async function deleteLookup(table: LookupTable, id: string): Promise<void> {
   revalidatePath('/dashboard/admin/loads')
 }
 
-export async function addProductNameAction(name: string): Promise<LookupRow> {
-  return addLookup('product_names', name)
+export async function addProductNameAction(
+  name: string
+): Promise<ActionResult<LookupRow>> {
+  try {
+    return actionSuccess(await addLookup('product_names', name))
+  } catch (error) {
+    return actionFailure(error, 'Could not add the stock item.', 'addProductNameAction')
+  }
 }
-export async function deleteProductNameAction(id: string): Promise<void> {
-  return deleteLookup('product_names', id)
+export async function deleteProductNameAction(
+  id: string
+): Promise<ActionResult<null>> {
+  try {
+    await deleteLookup('product_names', id)
+    return actionSuccess(null)
+  } catch (error) {
+    return actionFailure(error, 'Could not remove the stock item.', 'deleteProductNameAction')
+  }
 }
 
-export async function addContainerTypeAction(name: string): Promise<LookupRow> {
-  return addLookup('container_types', name)
+export async function addContainerTypeAction(
+  name: string
+): Promise<ActionResult<LookupRow>> {
+  try {
+    return actionSuccess(await addLookup('container_types', name))
+  } catch (error) {
+    return actionFailure(error, 'Could not add the container type.', 'addContainerTypeAction')
+  }
 }
-export async function deleteContainerTypeAction(id: string): Promise<void> {
-  return deleteLookup('container_types', id)
+export async function deleteContainerTypeAction(
+  id: string
+): Promise<ActionResult<null>> {
+  try {
+    await deleteLookup('container_types', id)
+    return actionSuccess(null)
+  } catch (error) {
+    return actionFailure(error, 'Could not remove the container type.', 'deleteContainerTypeAction')
+  }
 }
 
-export async function addQuantityUnitAction(name: string): Promise<LookupRow> {
-  return addLookup('quantity_units', name)
+export async function addQuantityUnitAction(
+  name: string
+): Promise<ActionResult<LookupRow>> {
+  try {
+    return actionSuccess(await addLookup('quantity_units', name))
+  } catch (error) {
+    return actionFailure(error, 'Could not add the quantity unit.', 'addQuantityUnitAction')
+  }
 }
-export async function deleteQuantityUnitAction(id: string): Promise<void> {
-  return deleteLookup('quantity_units', id)
+export async function deleteQuantityUnitAction(
+  id: string
+): Promise<ActionResult<null>> {
+  try {
+    await deleteLookup('quantity_units', id)
+    return actionSuccess(null)
+  } catch (error) {
+    return actionFailure(error, 'Could not remove the quantity unit.', 'deleteQuantityUnitAction')
+  }
 }

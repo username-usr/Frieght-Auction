@@ -3,6 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { getOperatorContext } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  actionFailure,
+  actionSuccess,
+  ExpectedActionError,
+  type ActionResult,
+} from '@/lib/action-result'
 import type { TruckType } from '@/lib/types'
 
 // Server actions for the truckers admin sub-page.
@@ -59,31 +65,41 @@ export type AddTruckerInput = {
   truck_type: TruckType
 }
 
-export async function addTruckerAction(
+async function addTrucker(
   input: AddTruckerInput
 ): Promise<TruckerRow> {
   await requireAdmin()
 
   const phone = input.phone_e164.trim()
   if (!PHONE_RE.test(phone)) {
-    throw new Error('Phone must be in E.164 format (e.g. +919876543210).')
+    throw new ExpectedActionError(
+      'Phone must be in E.164 format (e.g. +919876543210).',
+      'phone_e164'
+    )
   }
   // Secondary phone is optional. When provided it must be the same E.164
   // shape and must differ from the primary — same number on both fields
   // would be confusing and offers no real fallback.
   const secondaryPhone = input.secondary_phone?.trim() || null
   if (secondaryPhone && !PHONE_RE.test(secondaryPhone)) {
-    throw new Error(
-      'Secondary phone must be in E.164 format (e.g. +919876543210).'
+    throw new ExpectedActionError(
+      'Secondary phone must be in E.164 format (e.g. +919876543210).',
+      'secondary_phone'
     )
   }
   if (secondaryPhone && secondaryPhone === phone) {
-    throw new Error('Secondary phone must be different from primary phone.')
+    throw new ExpectedActionError(
+      'Secondary phone must be different from primary phone.',
+      'secondary_phone'
+    )
   }
   validateTruckType(input.truck_type)
   const fullName = input.full_name?.trim() || null
   if (fullName && fullName.length > 200) {
-    throw new Error('Full name must be 200 characters or fewer.')
+    throw new ExpectedActionError(
+      'Full name must be 200 characters or fewer.',
+      'full_name'
+    )
   }
 
   const supabase = createAdminClient()
@@ -98,7 +114,10 @@ export async function addTruckerAction(
     .maybeSingle()
   if (lookupErr) throw new Error(lookupErr.message)
   if (existing) {
-    throw new Error('A trucker with this phone already exists.')
+    throw new ExpectedActionError(
+      'This phone number is already registered to another trucker.',
+      'phone_e164'
+    )
   }
 
   const { data, error } = await supabase
@@ -117,10 +136,30 @@ export async function addTruckerAction(
       'id, phone_e164, secondary_phone, full_name, truck_type, status, archived_at, created_at'
     )
     .single()
+  if (error?.code === '23505') {
+    throw new ExpectedActionError(
+      'This phone number is already registered to another trucker.',
+      'phone_e164'
+    )
+  }
   if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard/admin/truckers')
   return data as TruckerRow
+}
+
+export async function addTruckerAction(
+  input: AddTruckerInput
+): Promise<ActionResult<TruckerRow>> {
+  try {
+    return actionSuccess(await addTrucker(input))
+  } catch (error) {
+    return actionFailure(
+      error,
+      'Could not add the trucker. Please try again.',
+      'addTruckerAction'
+    )
+  }
 }
 
 export type UpdateTruckerInput = {
@@ -129,7 +168,7 @@ export type UpdateTruckerInput = {
   truck_type: TruckType
 }
 
-export async function updateTruckerAction(
+async function updateTrucker(
   id: string,
   input: UpdateTruckerInput
 ): Promise<TruckerRow> {
@@ -139,13 +178,17 @@ export async function updateTruckerAction(
   validateTruckType(input.truck_type)
   const fullName = input.full_name?.trim() || null
   if (fullName && fullName.length > 200) {
-    throw new Error('Full name must be 200 characters or fewer.')
+    throw new ExpectedActionError(
+      'Full name must be 200 characters or fewer.',
+      'full_name'
+    )
   }
 
   const secondaryPhone = input.secondary_phone?.trim() || null
   if (secondaryPhone && !PHONE_RE.test(secondaryPhone)) {
-    throw new Error(
-      'Secondary phone must be in E.164 format (e.g. +919876543210).'
+    throw new ExpectedActionError(
+      'Secondary phone must be in E.164 format (e.g. +919876543210).',
+      'secondary_phone'
     )
   }
 
@@ -162,7 +205,10 @@ export async function updateTruckerAction(
       .maybeSingle()
     if (lookupErr) throw new Error(lookupErr.message)
     if (existing && existing.phone_e164 === secondaryPhone) {
-      throw new Error('Secondary phone must be different from primary phone.')
+      throw new ExpectedActionError(
+        'Secondary phone must be different from primary phone.',
+        'secondary_phone'
+      )
     }
   }
 
@@ -185,6 +231,21 @@ export async function updateTruckerAction(
 
   revalidatePath('/dashboard/admin/truckers')
   return data as TruckerRow
+}
+
+export async function updateTruckerAction(
+  id: string,
+  input: UpdateTruckerInput
+): Promise<ActionResult<TruckerRow>> {
+  try {
+    return actionSuccess(await updateTrucker(id, input))
+  } catch (error) {
+    return actionFailure(
+      error,
+      'Could not update the trucker. Please try again.',
+      'updateTruckerAction'
+    )
+  }
 }
 
 export async function suspendTruckerAction(id: string): Promise<void> {

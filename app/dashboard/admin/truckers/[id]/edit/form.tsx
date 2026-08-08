@@ -74,17 +74,25 @@ export function EditTruckerForm({
 
     startTransition(async () => {
       try {
-        await updateTruckerAction(id, {
+        const result = await updateTruckerAction(id, {
           secondary_phone: sp || null,
           full_name: fullName.trim() || null,
           truck_type: truckType,
         })
+        if (!result.ok) {
+          if (result.field === 'secondary_phone') {
+            setSecondaryPhoneError(result.error)
+          } else if (result.field === 'full_name') {
+            setNameError(result.error)
+          }
+          toast.error(result.error)
+          return
+        }
         toast.success('Trucker updated.')
         router.push('/dashboard/admin/truckers')
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : 'Failed to update trucker.'
-        )
+        console.error('[EditTruckerForm.handleSubmit]', err)
+        toast.error('Could not update the trucker. Please try again.')
       }
     })
   }
@@ -116,7 +124,10 @@ export function EditTruckerForm({
           autoComplete="off"
           disabled={isPending}
           value={secondaryPhone}
-          onChange={(e) => setSecondaryPhone(e.target.value)}
+          onChange={(e) => {
+            setSecondaryPhone(e.target.value)
+            if (secondaryPhoneError) setSecondaryPhoneError(null)
+          }}
           placeholder="+919876543210"
           className={`${FIELD} font-mono`}
         />
@@ -140,7 +151,10 @@ export function EditTruckerForm({
           autoComplete="off"
           disabled={isPending}
           value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          onChange={(e) => {
+            setFullName(e.target.value)
+            if (nameError) setNameError(null)
+          }}
           className={FIELD}
         />
         {nameError ? <p className={ERROR_TXT}>{nameError}</p> : null}

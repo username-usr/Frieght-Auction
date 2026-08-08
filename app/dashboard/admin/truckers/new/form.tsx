@@ -70,16 +70,27 @@ export function NewTruckerForm() {
 
     startTransition(async () => {
       try {
-        await addTruckerAction({
+        const result = await addTruckerAction({
           phone_e164: phone.trim(),
           secondary_phone: secondaryPhone.trim() || null,
           full_name: fullName.trim() || null,
           truck_type: truckType,
         })
+        if (!result.ok) {
+          if (result.field) {
+            setErrors((current) => ({
+              ...current,
+              [result.field as keyof Errors]: result.error,
+            }))
+          }
+          toast.error(result.error)
+          return
+        }
         toast.success('Trucker added.')
         router.push('/dashboard/admin/truckers')
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to add trucker.')
+        console.error('[NewTruckerForm.handleSubmit]', err)
+        toast.error('Could not add the trucker. Please try again.')
       }
     })
   }
@@ -97,7 +108,12 @@ export function NewTruckerForm() {
           autoComplete="off"
           disabled={isPending}
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => {
+            setPhone(e.target.value)
+            if (errors.phone_e164) {
+              setErrors((current) => ({ ...current, phone_e164: undefined }))
+            }
+          }}
           placeholder="+919876543210"
           className={`${FIELD} font-mono`}
         />
@@ -123,7 +139,15 @@ export function NewTruckerForm() {
           autoComplete="off"
           disabled={isPending}
           value={secondaryPhone}
-          onChange={(e) => setSecondaryPhone(e.target.value)}
+          onChange={(e) => {
+            setSecondaryPhone(e.target.value)
+            if (errors.secondary_phone) {
+              setErrors((current) => ({
+                ...current,
+                secondary_phone: undefined,
+              }))
+            }
+          }}
           placeholder="+919876543210"
           className={`${FIELD} font-mono`}
         />
@@ -147,7 +171,12 @@ export function NewTruckerForm() {
           autoComplete="off"
           disabled={isPending}
           value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          onChange={(e) => {
+            setFullName(e.target.value)
+            if (errors.full_name) {
+              setErrors((current) => ({ ...current, full_name: undefined }))
+            }
+          }}
           placeholder="Rajesh Kumar"
           className={FIELD}
         />

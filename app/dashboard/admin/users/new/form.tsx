@@ -72,17 +72,28 @@ export function NewUserForm({ zones }: Props) {
 
     startTransition(async () => {
       try {
-        await addOperatorAction({
+        const result = await addOperatorAction({
           email: email.trim().toLowerCase(),
           full_name: fullName.trim(),
           role,
           zone_id: zoneId === '' ? null : zoneId,
           password,
         })
+        if (!result.ok) {
+          if (result.field) {
+            setErrors((current) => ({
+              ...current,
+              [result.field as keyof Errors]: result.error,
+            }))
+          }
+          toast.error(result.error)
+          return
+        }
         toast.success('User added.')
         router.push('/dashboard/admin/users')
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to add user.')
+        console.error('[NewUserForm.handleSubmit]', err)
+        toast.error('Could not add the user. Please try again.')
       }
     })
   }
@@ -100,7 +111,12 @@ export function NewUserForm({ zones }: Props) {
           autoComplete="off"
           disabled={isPending}
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            if (errors.email) {
+              setErrors((current) => ({ ...current, email: undefined }))
+            }
+          }}
           placeholder="rajesh@ramnathlogistics.in"
           className={FIELD}
         />
@@ -124,7 +140,12 @@ export function NewUserForm({ zones }: Props) {
           autoComplete="off"
           disabled={isPending}
           value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          onChange={(e) => {
+            setFullName(e.target.value)
+            if (errors.full_name) {
+              setErrors((current) => ({ ...current, full_name: undefined }))
+            }
+          }}
           placeholder="Rajesh Kumar"
           className={FIELD}
         />
