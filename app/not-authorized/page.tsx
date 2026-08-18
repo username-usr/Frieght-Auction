@@ -44,7 +44,7 @@ export default async function NotAuthorizedPage() {
               <form action={signOut}>
                 <button
                   type="submit"
-                  className="w-full rounded-md bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-2"
+                  className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition-colors"
                 >
                   Sign out
                 </button>
@@ -52,7 +52,7 @@ export default async function NotAuthorizedPage() {
             ) : (
               <Link
                 href="/login"
-                className="block w-full rounded-md bg-blue-900 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-blue-800"
+                className="block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-medium text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 transition-colors"
               >
                 Sign in
               </Link>

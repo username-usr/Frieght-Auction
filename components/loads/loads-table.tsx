@@ -23,17 +23,16 @@ export type LoadListRow = {
   posted_by_name: string
   bid_count: number
   items_summary: string
+  drop_stop_count?: number
+  destinations_summary?: string
 }
 
-// Embedded load_items in the realtime refetch is a single SQL join, so the
-// summary stays current when loads change (e.g. a new INSERT). Per Part D,
-// items don't get their own realtime channel — a page refresh shows item
-// edits made after the load was first posted.
 const SELECT = `id, reference_code, origin_address, destination_address, truck_type_required,
   pickup_deadline, status, created_at,
   posted_by_operator:operators!loads_posted_by_fkey(full_name),
   bids(count),
-  load_items(position, product:product_names!product_name_id(name))`
+  load_items(position, product:product_names!product_name_id(name)),
+  load_destinations(position, address)`
 
 type LoadsSelectRow = {
   id: string
@@ -47,10 +46,12 @@ type LoadsSelectRow = {
   posted_by_operator: { full_name: string } | null
   bids: { count: number }[]
   load_items: { position: number; product: { name: string } | null }[]
+  load_destinations?: { position: number; address: string }[]
 }
 
 function normalize(row: LoadsSelectRow): LoadListRow {
   const items = [...row.load_items].sort((a, b) => a.position - b.position)
+  const dests = [...(row.load_destinations ?? [])].sort((a, b) => a.position - b.position)
   return {
     id: row.id,
     reference_code: row.reference_code,
@@ -65,20 +66,20 @@ function normalize(row: LoadsSelectRow): LoadListRow {
     items_summary: summarizeItemsByProduct(
       items.map((i) => i.product?.name ?? null)
     ),
+    drop_stop_count: dests.length,
+    destinations_summary: dests.map((d) => d.address).join(', '),
   }
 }
 
 const STATUS_BADGE: Record<LoadStatus, string> = {
-  open: 'bg-blue-100 text-blue-900',
-  awarded: 'bg-amber-100 text-amber-900',
-  accepted: 'bg-green-100 text-green-900',
-  declined: 'bg-rose-100 text-rose-900',
-  cancelled: 'bg-slate-200 text-slate-700',
-  completed: 'bg-slate-200 text-slate-700',
+  open: 'bg-blue-50 text-blue-700 border border-blue-200/60 font-semibold',
+  awarded: 'bg-amber-50 text-amber-800 border border-amber-200/60 font-semibold',
+  accepted: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-semibold',
+  declined: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-semibold',
+  cancelled: 'bg-slate-100 text-slate-600 border border-slate-200/60 font-medium',
+  completed: 'bg-slate-100 text-slate-600 border border-slate-200/60 font-medium',
 }
 
-// Human-friendly relabel for the three Awarded sub-states. The DB status
-// stays the source of truth; this map only affects what the operator reads.
 const STATUS_LABEL: Record<LoadStatus, string> = {
   open: 'open',
   awarded: 'awaiting',
@@ -88,8 +89,6 @@ const STATUS_LABEL: Record<LoadStatus, string> = {
   completed: 'completed',
 }
 
-// Left-border tint per status. Used to color-code rows inside the Awarded
-// section without introducing a new section header.
 const ROW_TINT: Record<LoadStatus, string> = {
   open: '',
   awarded: 'border-l-4 border-amber-400',
@@ -180,22 +179,12 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
   const [loads, setLoads] = useState<LoadListRow[]>(initialLoads)
   const { flashIds, flashRow } = useRowFlash(1000)
 
-  // Lazy init so createClient() runs exactly once per mount.
   const [supabase] = useState(() => createClient())
 
-  // Resync when the SSR snapshot changes (filter tab switch is a real
-  // navigation). Realtime updates that happened before this point are already
-  // in the new snapshot, so blowing away client state is safe.
   useEffect(() => {
-    // Intentional prop-to-state resync: local state also contains realtime rows.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoads(initialLoads)
   }, [initialLoads])
 
-  // Realtime: subscribe ONCE on mount and merge events directly into state.
-  // We deliberately do not use router.refresh() here — Next.js's Router
-  // Cache dedupes rapid refresh() calls, which made only the first event of
-  // a burst show up. Maintaining the row list ourselves avoids that entirely.
   useEffect(() => {
     async function fetchLoad(id: string): Promise<LoadListRow | null> {
       const { data } = await supabase
@@ -251,8 +240,6 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
         }
       )
       .subscribe((status) => {
-        // Surfaces SUBSCRIBED / CHANNEL_ERROR / TIMED_OUT / CLOSED so a dead
-        // channel is visible without poking around in the WS frames panel.
         console.log('[loads-list channel]', status)
       })
 
@@ -268,10 +255,6 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
   const [customTo, setCustomTo] = useState('')
   const [timeReference, setTimeReference] = useState(() => Date.now())
 
-  // Status filter is applied client-side so the realtime subscription
-  // doesn't have to be torn down and re-created when the user switches tabs.
-  // 'awarded' groups the three sub-states so a load moving from awarded →
-  // accepted/declined stays in the same tab the operator was looking at.
   const statusFilteredLoads =
     statusFilter === 'all'
       ? loads
@@ -382,17 +365,17 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-blue-600" />
-          <h2 className="text-sm font-semibold text-slate-900">Time filter</h2>
+    <div className="space-y-3.5">
+      <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs sm:p-4">
+        <div className="mb-2.5 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+          <h2 className="text-xs font-semibold text-slate-900">Time filter</h2>
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[150px] flex-1 sm:max-w-48">
+        <div className="flex flex-wrap items-end gap-2.5">
+          <div className="min-w-[140px] flex-1 sm:max-w-44">
             <label
               htmlFor="time-field"
-              className="mb-1 block text-xs font-medium text-slate-600"
+              className="mb-1 block text-[11px] font-medium text-slate-600"
             >
               Filter date by
             </label>
@@ -402,17 +385,17 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
               onChange={(event) =>
                 setTimeField(event.target.value as TimeField)
               }
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+              className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 shadow-xs focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
             >
               <option value="created_at">Posted at</option>
               <option value="pickup_deadline">Pickup deadline</option>
             </select>
           </div>
 
-          <div className="min-w-[150px] flex-1 sm:max-w-52">
+          <div className="min-w-[140px] flex-1 sm:max-w-48">
             <label
               htmlFor="time-preset"
-              className="mb-1 block text-xs font-medium text-slate-600"
+              className="mb-1 block text-[11px] font-medium text-slate-600"
             >
               Time period
             </label>
@@ -428,7 +411,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                   setCustomTo('')
                 }
               }}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+              className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 shadow-xs focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
             >
               <option value="all">All time</option>
               <option value="today">Today</option>
@@ -443,10 +426,10 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
 
           {timePreset === 'custom' && (
             <>
-              <div className="min-w-[150px] flex-1 sm:max-w-48">
+              <div className="min-w-[140px] flex-1 sm:max-w-44">
                 <label
                   htmlFor="time-from"
-                  className="mb-1 block text-xs font-medium text-slate-600"
+                  className="mb-1 block text-[11px] font-medium text-slate-600"
                 >
                   From
                 </label>
@@ -456,13 +439,13 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                   value={customFrom}
                   max={customTo || undefined}
                   onChange={(event) => setCustomFrom(event.target.value)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                  className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                 />
               </div>
-              <div className="min-w-[150px] flex-1 sm:max-w-48">
+              <div className="min-w-[140px] flex-1 sm:max-w-44">
                 <label
                   htmlFor="time-to"
-                  className="mb-1 block text-xs font-medium text-slate-600"
+                  className="mb-1 block text-[11px] font-medium text-slate-600"
                 >
                   To
                 </label>
@@ -472,7 +455,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                   value={customTo}
                   min={customFrom || undefined}
                   onChange={(event) => setCustomTo(event.target.value)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                  className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                 />
               </div>
             </>
@@ -482,28 +465,28 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
             <button
               type="button"
               onClick={clearTimeFilter}
-              className="rounded-md px-3 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50"
+              className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
             >
               Clear time filter
             </button>
           )}
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-1.5 text-[11px] text-slate-500">
           Date boundaries use Indian Standard Time (IST).
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative min-w-[240px] flex-1 max-w-md">
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="relative min-w-[220px] flex-1 max-w-md">
           <input
             type="text"
             placeholder="Search ref, location, items, trucker, operator..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 pl-9 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 pl-8 text-xs text-slate-900 placeholder-slate-400 shadow-xs focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
           />
           <svg
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -518,7 +501,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-900"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400 hover:text-slate-700"
             >
               Clear
             </button>
@@ -528,10 +511,10 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
         <button
           onClick={exportToCSV}
           disabled={visibleLoads.length === 0}
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50 sm:w-auto"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:border-slate-300 hover:bg-slate-50 transition-colors disabled:opacity-50 sm:w-auto"
         >
           <svg
-            className="h-3.5 w-3.5 text-slate-500"
+            className="h-3.5 w-3.5 text-slate-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -548,7 +531,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
       </div>
 
       {visibleLoads.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-600">
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-xs text-slate-600">
           {searchQuery || hasTimeFilter ? (
             <div className="space-y-2">
               <p>No loads match the current filters.</p>
@@ -571,7 +554,7 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
         </div>
       ) : (
         <>
-          <ul className="space-y-3 sm:hidden">
+          <ul className="space-y-2.5 sm:hidden">
             {visibleLoads.map((load) => {
               const flashing = flashIds.has(load.id)
               return (
@@ -579,128 +562,115 @@ export function LoadsTable({ initialLoads, statusFilter }: Props) {
                   <button
                     type="button"
                     onClick={() => router.push(`/dashboard/loads/${load.id}`)}
-                    className={`w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm ${
+                    className={`block w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-xs transition-colors duration-500 hover:bg-slate-50 ${ROW_TINT[load.status]} ${
                       flashing ? 'bg-blue-100' : ''
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-mono text-xs font-semibold text-blue-800">
-                          {load.reference_code}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Posted {formatRelativeTime(load.created_at)}
-                        </p>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-semibold text-slate-900">
+                        {load.reference_code}
+                      </span>
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${STATUS_BADGE[load.status]}`}
+                        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${STATUS_BADGE[load.status]}`}
                       >
                         {STATUS_LABEL[load.status]}
                       </span>
                     </div>
-
-                    <div className="mt-4 space-y-1">
-                      <p className="font-semibold text-slate-900">
-                        {load.origin_address}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-blue-700">
-                        <span className="h-px w-5 bg-blue-300" />
-                        <span aria-hidden="true">↓</span>
-                      </div>
-                      <p className="font-semibold text-slate-900">
-                        {load.destination_address}
-                      </p>
+                    <div className="mt-1 font-semibold text-xs text-slate-900 flex items-center gap-1.5 flex-wrap">
+                      <span>{load.origin_address} → {load.destination_address}</span>
+                      {load.drop_stop_count && load.drop_stop_count > 0 ? (
+                        <span className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 border border-blue-200/60">
+                          +{load.drop_stop_count} {load.drop_stop_count === 1 ? 'stop' : 'stops'}
+                        </span>
+                      ) : null}
                     </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
-                      <div>
-                        <p className="text-slate-500">Pickup</p>
-                        <p className="mt-1 font-medium text-slate-800">
-                          {formatAbsoluteIST(load.pickup_deadline)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-slate-500">Truck · Bids</p>
-                        <p className="mt-1 font-medium capitalize text-slate-800">
-                          {load.truck_type_required} · {load.bid_count}
-                        </p>
-                      </div>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                      <span suppressHydrationWarning>{formatRelativeTime(load.created_at)}</span>
+                      <span>{load.bid_count} bids</span>
                     </div>
-                    <p className="mt-3 truncate text-xs text-slate-600">
-                      {load.items_summary}
-                    </p>
                   </button>
                 </li>
               )
             })}
           </ul>
 
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm sm:block">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
-              <tr>
-                <th className="px-4 py-3 text-left">Ref</th>
-                <th className="px-4 py-3 text-left">Posted</th>
-                <th className="px-4 py-3 text-left">Origin → Destination</th>
-                <th className="px-4 py-3 text-left">Items</th>
-                <th className="px-4 py-3 text-left">Truck</th>
-                <th className="px-4 py-3 text-left">Pickup</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-right">Bids</th>
-                <th className="px-4 py-3 text-left">Posted by</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {visibleLoads.map((load) => {
-                const flashing = flashIds.has(load.id)
-                return (
-                  <tr
-                    key={load.id}
-                    onClick={() => router.push(`/dashboard/loads/${load.id}`)}
-                    className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${ROW_TINT[load.status]} ${
-                      flashing ? 'bg-blue-100' : ''
-                    }`}
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium text-slate-900">
-                      {load.reference_code}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                      {formatRelativeTime(load.created_at)}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-900">
-                      {load.origin_address} → {load.destination_address}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {load.items_summary}
-                    </td>
-                    <td className="px-4 py-3 capitalize text-slate-700">
-                      {load.truck_type_required}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                      {formatAbsoluteIST(load.pickup_deadline)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[load.status]}`}
-                      >
-                        {STATUS_LABEL[load.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                      {load.bid_count}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {load.posted_by_name}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-xs sm:block">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left">Ref</th>
+                  <th className="px-3 py-2 text-left">Posted</th>
+                  <th className="px-3 py-2 text-left">Origin → Destination</th>
+                  <th className="px-3 py-2 text-left">Items</th>
+                  <th className="px-3 py-2 text-left">Truck</th>
+                  <th className="px-3 py-2 text-left">Pickup</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-right">Bids</th>
+                  <th className="px-3 py-2 text-left">Posted by</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {visibleLoads.map((load) => {
+                  const flashing = flashIds.has(load.id)
+                  return (
+                    <tr
+                      key={load.id}
+                      onClick={() => router.push(`/dashboard/loads/${load.id}`)}
+                      className={`cursor-pointer transition-colors duration-500 hover:bg-slate-50 ${ROW_TINT[load.status]} ${
+                        flashing ? 'bg-blue-100' : ''
+                      }`}
+                    >
+                      <td className="whitespace-nowrap px-3 py-2 font-mono text-xs font-semibold text-slate-900">
+                        {load.reference_code}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-600" suppressHydrationWarning>
+                        {formatRelativeTime(load.created_at)}
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-slate-900">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{load.origin_address} → {load.destination_address}</span>
+                          {load.drop_stop_count && load.drop_stop_count > 0 ? (
+                            <span className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 border border-blue-200/60">
+                              +{load.drop_stop_count} {load.drop_stop_count === 1 ? 'stop' : 'stops'}
+                            </span>
+                          ) : null}
+                        </div>
+                        {load.destinations_summary ? (
+                          <p className="text-[11px] font-normal text-slate-500 truncate max-w-xs mt-0.5">
+                            Via: {load.destinations_summary}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {load.items_summary}
+                      </td>
+                      <td className="px-3 py-2 capitalize text-slate-600">
+                        {load.truck_type_required}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-600">
+                        {formatAbsoluteIST(load.pickup_deadline)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${STATUS_BADGE[load.status]}`}
+                        >
+                          {STATUS_LABEL[load.status]}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-600">
+                        {load.bid_count}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {load.posted_by_name}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </>
       )}
     </div>
   )
 }
-

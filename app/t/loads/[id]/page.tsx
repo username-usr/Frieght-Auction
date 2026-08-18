@@ -11,6 +11,7 @@ import type { LoadStatus, TruckType, BidStatus } from '@/lib/types'
 import { AcceptAwardForm } from './accept-award-form'
 import { PlaceBidForm } from './place-bid-form'
 import { ShipmentDetailsForm } from './shipment-details-form'
+import { AuctionCountdown } from '@/components/loads/auction-countdown'
 
 export const dynamic = 'force-dynamic'
 
@@ -194,11 +195,18 @@ export default async function TruckerLoadDetailPage({
       <nav className="text-xs">
         <Link
           href="/t/loads"
-          className="text-slate-600 hover:text-slate-900"
+          className="text-slate-600 hover:text-slate-900 font-medium"
         >
           ← Back to loads
         </Link>
       </nav>
+
+      {/* Real-time Auction Countdown & Live Leaderboard */}
+      <AuctionCountdown
+        pickupDeadline={load.pickup_deadline}
+        bids={bids}
+        currentTruckerId={trucker.id}
+      />
 
       {isSuspended ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
@@ -211,35 +219,38 @@ export default async function TruckerLoadDetailPage({
 
       {pendingAcceptance ? (
         // Awarded but not yet accepted — show the Accept/Decline panel.
-        <AcceptAwardForm loadId={load.id} />
+        <AcceptAwardForm loadId={load.id} referenceCode={load.reference_code} />
       ) : acceptedByMe ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900 space-y-3">
-          <div>
-            <p className="font-semibold flex items-center gap-1.5">
-              <svg className="h-4 w-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              You accepted this load
-              {load.accepted_at
-                ? ` on ${formatAbsoluteIST(load.accepted_at)}`
-                : ''}
-            </p>
-            <p className="mt-1 text-xs text-green-800">
-              Pickup by {formatAbsoluteIST(load.pickup_deadline)}. Fill in your
-              truck and driver details below — they help the operator track
-              the load.
-            </p>
+        <div className="rounded-xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-white to-green-50 p-5 text-sm text-emerald-950 space-y-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-xl font-bold">
+              ✅
+            </div>
+            <div>
+              <p className="font-bold text-sm text-emerald-950 flex items-center gap-2">
+                🎉 CONGRATULATIONS! LOAD #{load.reference_code} CONFIRMED & LOCKED!
+              </p>
+              <p className="mt-1 text-xs text-emerald-900 leading-relaxed font-medium">
+                Confirmed{load.accepted_at ? ` on ${formatAbsoluteIST(load.accepted_at)}` : ''}.
+                Pickup by <span className="font-semibold text-slate-900">{formatAbsoluteIST(load.pickup_deadline)}</span>.
+              </p>
+            </div>
           </div>
-          <div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-emerald-200/80">
             <Link
               href={`/t/loads/${load.id}/gatepass`}
-              className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-800 active:bg-emerald-900 transition-colors"
             >
               <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              View Official Warehouse Gate Pass
+              📄 View & Print Official Warehouse Gate Pass
             </Link>
+
+            <span className="text-xs text-slate-600 font-medium">
+              👉 Please submit your Truck & Driver details below to finalize entry.
+            </span>
           </div>
         </div>
       ) : completedForMe ? (

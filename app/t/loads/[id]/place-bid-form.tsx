@@ -64,7 +64,7 @@ export function PlaceBidForm({
           value={rupees}
           onChange={(e) => setRupees(e.target.value)}
           placeholder="13000"
-          className="mt-1 block h-12 w-full rounded-md border border-slate-300 bg-slate-50 px-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
+          className="mt-1 block h-12 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 transition-colors"
         />
         <p className="mt-2 text-xs text-slate-500">
           Required. Whole rupees only. Lowest bid wins when the load is awarded.
@@ -116,7 +116,7 @@ export function PlaceBidForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="block h-12 w-full rounded-md bg-blue-900 px-4 text-base font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="block h-12 w-full rounded-lg bg-blue-600 px-4 text-base font-medium text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
         >
           {isSubmitting
             ? isUpdate

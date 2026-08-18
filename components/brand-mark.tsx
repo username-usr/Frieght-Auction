@@ -15,26 +15,28 @@ export function BrandMark({
   compact = false,
 }: BrandMarkProps) {
   const content = (
-    <>
+    <div className="flex flex-col items-start gap-0.5">
       <Image
         src="/ramnath-logo.png"
         alt="Ram-Nath"
         width={500}
         height={107}
         priority={priority}
-        className={compact ? 'h-7 w-auto sm:h-8' : 'h-9 w-auto sm:h-10'}
+        className={compact ? 'h-7 w-auto' : 'h-9 w-auto'}
       />
-      <span className="hidden border-l border-slate-200 pl-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:block">
-        {label}
-      </span>
-    </>
+      {label && (
+        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
+          {label}
+        </span>
+      )}
+    </div>
   )
 
   return (
     <Link
       href={href}
       aria-label="Ram-Nath home"
-      className="inline-flex min-w-0 items-center gap-3 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-900 focus-visible:ring-offset-4"
+      className="inline-flex min-w-0 items-start rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
     >
       {content}
     </Link>

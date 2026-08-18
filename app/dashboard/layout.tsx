@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { Toaster } from 'sonner'
 import { getOperatorContext } from '@/lib/auth'
 import { BrandMark } from '@/components/brand-mark'
-import { DashboardNav } from '@/components/dashboard-nav'
+import { SidebarNav } from '@/components/dashboard-nav'
 import { signOut } from './actions'
 
 // The dashboard layout is the auth + provisioning gate for everything under
@@ -29,50 +29,17 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-slate-50 antialiased">
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex min-h-18 items-center justify-between gap-4 py-3">
-            <BrandMark
-              href="/dashboard"
-              label="Operator dashboard"
-              priority
-            />
-
-            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-              <div className="hidden text-right leading-tight sm:block">
-                <p className="max-w-48 truncate text-sm font-semibold text-slate-900">
-                  {operator.full_name}
-                </p>
-                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  {operator.role}
-                </p>
-              </div>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-bold uppercase text-blue-900">
-                {operator.full_name.trim().charAt(0) || 'R'}
-              </div>
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 sm:px-4"
-                >
-                  Sign out
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-100 py-2">
-            <DashboardNav isAdmin={isAdmin} />
-            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:block">
-              Freight command centre
-            </span>
-          </div>
-        </div>
-      </header>
+      <SidebarNav
+        isAdmin={isAdmin}
+        operator={operator}
+        signOutAction={signOut}
+      />
       <Toaster richColors position="top-right" closeButton />
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
-        {children}
-      </main>
+      <div className="lg:pl-60 flex flex-col min-h-screen">
+        <main className="flex-1 p-3.5 sm:p-5 lg:p-6">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

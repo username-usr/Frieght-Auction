@@ -32,11 +32,17 @@ export default async function AdminZonesPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <p className="text-sm text-slate-600">
-        Regional zones used to scope which operators see which loads.
-        Removing a zone hides it from future use but keeps it on existing
-        operators and loads.
-      </p>
+      <div>
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700">
+          Regional Operations
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          Zones & Locations
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-600">
+          Manage regional operational zones used to scope load visibility and operator dispatch regions.
+        </p>
+      </div>
 
       <AdminSection
         title="Zones"

@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { rememberAddress } from '@/lib/saved-addresses'
 import { sendNewLoadAlerts } from '@/lib/notifications/new-load-alert'
+import { sendTwilioLoadAlerts } from '@/lib/notifications/twilio-load-alert'
 import { createClient } from '@/lib/supabase/server'
 import type { TruckType, WeightUnit } from '@/lib/types'
 
@@ -201,9 +202,12 @@ export async function createLoad(input: CreateLoadInput): Promise<never> {
   // it so nothing here can prevent the redirect below. The load is already
   // committed; messaging is a side effect, not part of the transaction.
   try {
-    await sendNewLoadAlerts(loadId)
+    await Promise.allSettled([
+      sendTwilioLoadAlerts(loadId),
+      sendNewLoadAlerts(loadId),
+    ])
   } catch (err) {
-    console.error('[createLoad] sendNewLoadAlerts unexpected error:', err)
+    console.error('[createLoad] WhatsApp alerts unexpected error:', err)
   }
 
   redirect(`/dashboard/loads/${loadId}`)

@@ -16,14 +16,14 @@ const FILTERS: { label: string; value: FilterValue }[] = [
 // the slate palette.
 export function StatusFilter({ current }: { current: FilterValue }) {
   return (
-    <div className="scrollbar-none flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 sm:inline-flex">
+    <div className="scrollbar-none flex max-w-full gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 sm:inline-flex">
       {FILTERS.map((f) => {
         const active = f.value === current
         return (
           <Link
             key={f.value}
             href={`/dashboard?status=${f.value}`}
-            className={`shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors ${
+            className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
               active
                 ? 'bg-blue-50 text-blue-900'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'

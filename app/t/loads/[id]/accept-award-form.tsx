@@ -5,22 +5,37 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { acceptAwardAction, declineAwardAction } from './actions'
 
-type Props = { loadId: string }
+type Props = {
+  loadId: string
+  referenceCode?: string
+}
 
-// Sit-side action panel: Accept (single click) or Decline (single click ->
-// reveal reason textarea -> confirm). The textarea-with-confirm pattern is
-// in-line (not a modal) so it works well on mobile.
-export function AcceptAwardForm({ loadId }: Props) {
+export function AcceptAwardForm({ loadId, referenceCode }: Props) {
   const router = useRouter()
   const [declining, setDeclining] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
   const [reason, setReason] = useState('')
   const [isPending, startTransition] = useTransition()
 
-  function handleAccept() {
+  const normalizedInput = confirmText.trim().toUpperCase()
+  const isValidConfirmation =
+    normalizedInput === 'CONFIRM' ||
+    normalizedInput === 'ACCEPT' ||
+    normalizedInput === 'YES' ||
+    (referenceCode && normalizedInput === `CONFIRM ${referenceCode.toUpperCase()}`) ||
+    (referenceCode && normalizedInput === `ACCEPT ${referenceCode.toUpperCase()}`)
+
+  function handleAccept(e?: React.FormEvent) {
+    if (e) e.preventDefault()
+    if (!isValidConfirmation) {
+      toast.error('Please type "CONFIRM" or "ACCEPT" to confirm this load.')
+      return
+    }
+
     startTransition(async () => {
       try {
         await acceptAwardAction(loadId)
-        toast.success('Load accepted.')
+        toast.success('🎉 Congratulations! Load confirmed. Gate pass generated!')
         router.refresh()
       } catch (err) {
         toast.error(
@@ -63,15 +78,14 @@ export function AcceptAwardForm({ loadId }: Props) {
     return (
       <form
         onSubmit={handleConfirmDecline}
-        className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4"
+        className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm"
       >
         <div>
           <label
             htmlFor="decline-reason"
-            className="block text-sm font-medium text-red-900"
+            className="block text-xs font-bold uppercase tracking-wider text-rose-900"
           >
-            Why are you declining?{' '}
-            <span className="text-red-600">*</span>
+            Why are you declining? <span className="text-rose-600">*</span>
           </label>
           <textarea
             id="decline-reason"
@@ -82,17 +96,17 @@ export function AcceptAwardForm({ loadId }: Props) {
             required
             rows={3}
             placeholder="e.g. Truck broken down, schedule conflict, rate too low…"
-            className="mt-1 block w-full rounded-md border-2 border-red-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-red-700 focus:outline-none focus:ring-1 focus:ring-red-700"
+            className="mt-1.5 block w-full rounded-md border border-rose-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-rose-700 focus:outline-none focus:ring-1 focus:ring-rose-700"
           />
-          <p className="mt-1 text-xs text-red-800">
-            Required. The operator will see this when they pick another bid.
+          <p className="mt-1 text-[11px] text-rose-800">
+            The operator will see this reason to re-award the load to another trucker.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-rose-700 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
           >
             {isPending ? 'Sending…' : 'Confirm decline'}
           </button>
@@ -100,7 +114,7 @@ export function AcceptAwardForm({ loadId }: Props) {
             type="button"
             disabled={isPending}
             onClick={handleCancelDecline}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
           >
             Cancel
           </button>
@@ -110,37 +124,65 @@ export function AcceptAwardForm({ loadId }: Props) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-green-200 bg-green-50 p-4">
-      <div>
-        <p className="text-sm font-semibold text-green-900 flex items-center gap-1.5">
-          <svg className="h-4 w-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4m6 17v-3.572a2 2 0 01.696-1.506l.542-.46a1 1 0 00.362-.768V9a1 1 0 00-1-1H9a1 1 0 00-1 1v6.694a1 1 0 00.362.768l.542.46A2 2 0 019.6 18.428V22m6 0H9" />
-          </svg>
-          You&apos;ve been awarded this load
-        </p>
-        <p className="mt-1 text-xs text-green-800">
-          Accept to lock it in, or decline with a reason so the operator can
-          pick someone else.
-        </p>
+    <div className="space-y-4 rounded-xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-white to-green-50 p-5 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-xl font-bold">
+          🎉
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+            CONGRATULATIONS! YOU HAVE WON THIS BID!
+          </h3>
+          <p className="text-xs text-emerald-900 leading-relaxed font-medium">
+            Your bid for Load {referenceCode ? `#${referenceCode}` : ''} has been selected by the operator.
+            Please confirm your acceptance below to lock in the shipment and unlock your **Official Warehouse Gate Pass**.
+          </p>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={handleAccept}
-          disabled={isPending}
-          className="rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isPending ? 'Accepting…' : 'Accept'}
-        </button>
-        <button
-          type="button"
-          onClick={handleStartDecline}
-          disabled={isPending}
-          className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Decline
-        </button>
-      </div>
+
+      <form onSubmit={handleAccept} className="space-y-3 pt-1 border-t border-emerald-200/80">
+        <div>
+          <label htmlFor="confirm-input" className="block text-xs font-semibold text-emerald-950 mb-1">
+            Type <span className="font-mono bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-900">CONFIRM</span> or <span className="font-mono bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-900">ACCEPT</span> to confirm this load:
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="confirm-input"
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              disabled={isPending}
+              placeholder='Type "CONFIRM" or "ACCEPT"...'
+              className="flex-1 rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-900 placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            />
+            <button
+              type="submit"
+              disabled={!isValidConfirmation || isPending}
+              className="rounded-md bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-800 active:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50 transition-colors whitespace-nowrap"
+            >
+              {isPending ? 'Confirming…' : '✅ Confirm & Unlock Gate Pass'}
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] text-emerald-800">
+            Tip: You can also confirm by replying <span className="font-mono font-semibold">CONFIRM</span> directly on WhatsApp!
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-[11px] text-slate-500">
+            Cannot take this load?
+          </span>
+          <button
+            type="button"
+            onClick={handleStartDecline}
+            disabled={isPending}
+            className="text-xs font-medium text-rose-700 hover:text-rose-900 hover:underline"
+          >
+            Decline load award
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
+

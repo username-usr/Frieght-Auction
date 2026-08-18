@@ -179,10 +179,11 @@ export default async function LoadDetailPage({
   return (
     <div className="space-y-6">
       {/* 1. TOP HEADER BAR: Ref ID, Route Title, Status Badge & Action Buttons */}
-      <header className="py-2 px-1 mb-4 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
+      <header className="mb-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          {/* Left Title & Route Information */}
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-mono font-semibold text-slate-700 border border-slate-200">
                 Load #{load.reference_code}
               </span>
@@ -191,71 +192,77 @@ export default async function LoadDetailPage({
               >
                 {load.status}
               </span>
+              {additionalDestinations.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 border border-blue-200/60">
+                  <svg className="h-3 w-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {additionalDestinations.length} Drop {additionalDestinations.length === 1 ? 'Stop' : 'Stops'}
+                </span>
+              )}
             </div>
+
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               {load.origin_address} → {load.destination_address}
-              {additionalDestinations.length > 0 ? (
-                <span className="text-slate-500 font-normal text-lg">
-                  {' '}
-                  (+{additionalDestinations.length} drop stop{additionalDestinations.length > 1 ? 's' : ''})
-                </span>
-              ) : null}
             </h1>
+
+            {additionalDestinations.length > 0 && (
+              <div className="text-xs font-medium text-slate-600 flex items-center gap-1.5 flex-wrap">
+                <span className="font-semibold text-slate-700">Full Route:</span>
+                <span className="font-mono text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  {load.origin_address} → {additionalDestinations.map(d => d.address).join(' → ')} → {load.destination_address}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Action Buttons Toolbar: 2 Balanced Rows */}
-          <div className="flex flex-col gap-2 w-full sm:w-auto">
-            {/* Row 1: Reporting & Settings (Edit Visibility, Export CSV, Activity Log) */}
-            <div className="flex flex-wrap items-center gap-2">
-              {load.status === 'open' && (
-                <Link
-                  href={`/dashboard/loads/${load.id}/visibility`}
-                  className="inline-flex items-center justify-center gap-1.5 h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 transition-colors flex-1 sm:flex-initial"
-                >
-                  <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  Edit visibility
-                </Link>
-              )}
-              <ExportBidsButton
-                loadRefCode={load.reference_code}
-                bids={bids}
-                referencePricePaise={load.reference_price_paise}
-              />
+          {/* Action Buttons Toolbar: Unified Single Row */}
+          <div className="flex flex-wrap items-center gap-2 justify-start sm:justify-end">
+            {load.status === 'open' && (
+              <BroadcastWhatsAppButton loadId={load.id} />
+            )}
+            {load.status === 'accepted' && (
+              <MarkCompletedButton loadId={load.id} />
+            )}
+            {load.status === 'awarded' && (
+              <CancelAwardButton loadId={load.id} />
+            )}
+            {load.status === 'completed' && (
+              <ReopenLoadButton loadId={load.id} />
+            )}
+            {load.status === 'open' && (
               <Link
-                href={`/dashboard/loads/${load.id}/audit`}
-                className="inline-flex items-center justify-center gap-1.5 h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 transition-colors flex-1 sm:flex-initial"
+                href={`/dashboard/loads/${load.id}/visibility`}
+                className="inline-flex items-center justify-center gap-1.5 h-9 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:border-slate-300 hover:bg-slate-50 transition-colors"
               >
                 <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                Activity log
+                Edit visibility
               </Link>
-            </div>
-
-            {/* Row 2: Operational Actions (WhatsApp Alert, Completion, Reopen, Cancel) */}
-            <div className="flex flex-wrap items-center gap-2">
-              {load.status === 'open' && (
-                <BroadcastWhatsAppButton loadId={load.id} />
-              )}
-              {load.status === 'accepted' && (
-                <MarkCompletedButton loadId={load.id} />
-              )}
-              {load.status === 'awarded' && (
-                <CancelAwardButton loadId={load.id} />
-              )}
-              {load.status === 'completed' && (
-                <ReopenLoadButton loadId={load.id} />
-              )}
-              {canCancel && (
-                <CancelLoadButton
-                  loadId={load.id}
-                  activeBidCount={activeBidCount}
-                />
-              )}
-            </div>
+            )}
+            <ExportBidsButton
+              loadRefCode={load.reference_code}
+              bids={bids}
+              referencePricePaise={load.reference_price_paise}
+            />
+            <Link
+              href={`/dashboard/loads/${load.id}/audit`}
+              className="inline-flex items-center justify-center gap-1.5 h-9 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:border-slate-300 hover:bg-slate-50 transition-colors"
+            >
+              <svg className="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Activity log
+            </Link>
+            {canCancel && (
+              <CancelLoadButton
+                loadId={load.id}
+                activeBidCount={activeBidCount}
+              />
+            )}
           </div>
         </div>
       </header>
@@ -434,24 +441,45 @@ export default async function LoadDetailPage({
             </div>
           )}
 
-          {/* Row 5: Driver / Shipment Details (if Accepted or Completed) */}
-          {(load.status === 'accepted' || load.status === 'completed') && (
-            <div className="p-4 bg-emerald-50/40 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs border-t border-emerald-100">
-              <div>
-                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Assigned Truck</span>
-                <span className="font-mono font-bold text-emerald-950 uppercase">{load.truck_number ?? '—'}</span>
+          {/* Row 5: Driver / Shipment Details & Gate Pass Link */}
+          {(load.status === 'awarded' || load.status === 'accepted' || load.status === 'completed' || load.truck_number || load.driver_name) && (
+            <div className="p-4 bg-emerald-50/40 space-y-3 border-t border-emerald-100">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                  <svg className="h-4 w-4 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Trucker Confirmation & Vehicle Assignment
+                </span>
+                <Link
+                  href={`/t/loads/${load.id}/gatepass`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-800 transition-colors"
+                >
+                  <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  📄 View / Print Official Gate Pass
+                </Link>
               </div>
-              <div>
-                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Driver Name</span>
-                <span className="font-semibold text-emerald-950">{load.driver_name ?? '—'}</span>
-              </div>
-              <div>
-                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Driver Phone</span>
-                <span className="font-mono text-emerald-950">{load.driver_phone ?? '—'}</span>
-              </div>
-              <div>
-                <span className="text-emerald-800 font-medium uppercase tracking-wider block">Invoice No.</span>
-                <span className="font-medium text-emerald-950">{load.invoice_number ?? '—'}</span>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs pt-1">
+                <div>
+                  <span className="text-emerald-800 font-medium uppercase tracking-wider block">Assigned Truck</span>
+                  <span className="font-mono font-bold text-emerald-950 uppercase">{load.truck_number ?? '—'}</span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 font-medium uppercase tracking-wider block">Driver Name</span>
+                  <span className="font-semibold text-emerald-950">{load.driver_name ?? '—'}</span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 font-medium uppercase tracking-wider block">Driver Phone</span>
+                  <span className="font-mono text-emerald-950">{load.driver_phone ?? '—'}</span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 font-medium uppercase tracking-wider block">Invoice No.</span>
+                  <span className="font-medium text-emerald-950">{load.invoice_number ?? '—'}</span>
+                </div>
               </div>
             </div>
           )}

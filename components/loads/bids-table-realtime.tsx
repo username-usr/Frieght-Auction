@@ -27,11 +27,11 @@ const SELECT = `id, amount_paise, status, created_at, message_text,
   trucker:truckers!bids_trucker_id_fkey(full_name, phone_e164, truck_type)`
 
 const STATUS_BADGE: Record<BidStatus, string> = {
-  active: 'bg-blue-100 text-blue-900',
-  won: 'bg-green-100 text-green-900',
-  lost: 'bg-slate-200 text-slate-700',
-  withdrawn: 'bg-slate-200 text-slate-700',
-  declined: 'bg-red-100 text-red-900',
+  active: 'bg-blue-50 text-blue-700 border border-blue-200/60 font-semibold',
+  won: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-semibold',
+  lost: 'bg-slate-100 text-slate-600 border border-slate-200/60 font-medium',
+  withdrawn: 'bg-slate-100 text-slate-600 border border-slate-200/60 font-medium',
+  declined: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-semibold',
 }
 
 type Props = {
@@ -494,16 +494,16 @@ export function BidsTableRealtime({ loadId, loadStatus, initialBids, referencePr
           ) : (
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm scrollbar-thin">
               <table className="w-full min-w-[640px] text-sm">
-                <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-600">
+                <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 text-left">Rank</th>
-                    <th className="px-4 py-3 text-left">Trucker</th>
-                    <th className="px-4 py-3 text-left">Truck</th>
-                    <th className="px-4 py-3 text-right">Bid</th>
-                    <th className="px-4 py-3 text-left">Placed Via</th>
-                    <th className="px-4 py-3 text-left">Status</th>
-                    <th className="px-4 py-3 text-left">Submitted</th>
-                    {canAward && <th className="px-4 py-3 text-right">Action</th>}
+                    <th className="px-3 py-2 text-left">Rank</th>
+                    <th className="px-3 py-2 text-left">Trucker</th>
+                    <th className="px-3 py-2 text-left">Truck</th>
+                    <th className="px-3 py-2 text-right">Bid</th>
+                    <th className="px-3 py-2 text-left">Placed Via</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Submitted</th>
+                    {canAward && <th className="px-3 py-2 text-right">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -516,55 +516,55 @@ export function BidsTableRealtime({ loadId, loadStatus, initialBids, referencePr
                         key={bid.id}
                         className={`transition-colors duration-500 ${flashing ? 'bg-blue-100' : ''}`}
                       >
-                        <td className="px-4 py-3">{renderRank(rank)}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-slate-900">
+                        <td className="px-3 py-2 text-xs">{renderRank(rank)}</td>
+                        <td className="px-3 py-2 text-xs">
+                          <div className="font-semibold text-slate-900">
                             {bid.trucker?.full_name ?? '—'}
                           </div>
-                          <div className="font-mono text-xs text-slate-500">
+                          <div className="font-mono text-[11px] text-slate-500">
                             {bid.trucker?.phone_e164 ?? ''}
                           </div>
                         </td>
-                        <td className="px-4 py-3 capitalize text-slate-700">
+                        <td className="px-3 py-2 text-xs capitalize text-slate-600">
                           {bid.trucker?.truck_type ?? '—'}
                         </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-900">
+                        <td className="px-3 py-2 text-xs text-right font-semibold tabular-nums text-slate-900">
                           {formatINR(bid.amount_paise)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 py-2 text-xs whitespace-nowrap">
                           {isManualCall ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 border border-amber-200">
-                              <svg className="h-3.5 w-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200">
+                              <svg className="h-3 w-3 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                               </svg>
                               Phone Call
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 border border-emerald-200">
-                              <svg className="h-3.5 w-3.5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                              <svg className="h-3 w-3 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                               </svg>
                               WhatsApp / Web
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 text-xs">
                           <span
-                            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[bid.status]}`}
+                            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${STATUS_BADGE[bid.status]}`}
                           >
                             {bid.status}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-600">
                           {formatRelativeTime(bid.created_at)}
                         </td>
                         {canAward && (
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 py-2 text-right">
                             {bid.status === 'active' ? (
                               <button
                                 type="button"
                                 onClick={() => setConfirmingBid(bid)}
-                                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
                               >
                                 <svg
                                   className="h-3.5 w-3.5 text-emerald-600"

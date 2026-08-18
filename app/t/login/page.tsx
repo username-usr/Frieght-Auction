@@ -87,7 +87,7 @@ export default function TruckerLoginPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+919900000001"
-              className="mt-1 block h-12 w-full rounded-md border border-slate-300 bg-slate-50 px-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
+              className="mt-1 block h-12 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 transition-colors"
             />
             <p className="mt-2 text-xs text-slate-500">
               Required. Use international format, e.g. +919900000001
@@ -96,7 +96,7 @@ export default function TruckerLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="block h-12 w-full rounded-md bg-blue-900 px-4 text-base font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="block h-12 w-full rounded-lg bg-blue-600 px-4 text-base font-medium text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
           >
             {isSubmitting ? 'Checking…' : 'Continue'}
           </button>
@@ -137,14 +137,14 @@ export default function TruckerLoginPage() {
                 autoFocus
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block h-12 w-full rounded-md border border-slate-300 bg-slate-50 py-2 pl-3 pr-10 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900"
+                className="block h-12 w-full rounded-lg border border-slate-200 bg-white py-2 pl-3.5 pr-10 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-3 text-slate-500 hover:text-slate-700"
+                className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600"
               >
                 {showPassword ? (
                   <svg
@@ -188,7 +188,7 @@ export default function TruckerLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="block h-12 w-full rounded-md bg-blue-900 px-4 text-base font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="block h-12 w-full rounded-lg bg-blue-600 px-4 text-base font-medium text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
           >
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>

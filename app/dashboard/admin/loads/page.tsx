@@ -42,11 +42,17 @@ export default async function AdminLoadsPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <p className="text-sm text-slate-600">
-        Manage the dropdown options that appear when posting a new load.
-        Removing an option hides it from future loads but keeps it on
-        historical ones.
-      </p>
+      <div>
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700">
+          Master Data
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          Cargo & Stock Items
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-600">
+          Manage stock items, chemical product names, container types, and quantity units for load postings.
+        </p>
+      </div>
 
       <AdminSection
         title="Stock item names"

@@ -18,7 +18,7 @@ export function AdminSubNav() {
 
   return (
     <div className="overflow-x-auto scrollbar-none">
-      <nav className="inline-flex min-w-full gap-1 rounded-xl border border-slate-200 bg-white p-1.5 whitespace-nowrap sm:min-w-0">
+      <nav className="inline-flex min-w-full gap-1 rounded-lg border border-slate-200 bg-white p-1 whitespace-nowrap sm:min-w-0">
       {TABS.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`)
         return (
@@ -27,8 +27,8 @@ export function AdminSubNav() {
             href={tab.href}
             className={
               active
-                ? 'rounded-lg bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-900'
-                : 'rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                ? 'rounded-md bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-900'
+                : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }
           >
             {tab.label}

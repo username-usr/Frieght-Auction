@@ -144,7 +144,7 @@ export function ShipmentDetailsForm({
           accept="image/*,.pdf"
           disabled={isPending}
           onChange={handleFileChange}
-          className="mt-2 block w-full text-xs text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-slate-800"
+          className="mt-2 block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-slate-800 transition-colors"
         />
         {podFileName ? (
           <p className="mt-1.5 text-xs font-semibold text-emerald-700 flex items-center gap-1">
@@ -161,7 +161,7 @@ export function ShipmentDetailsForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
         >
           {isPending ? 'Saving…' : 'Save details'}
         </button>

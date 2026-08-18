@@ -39,12 +39,155 @@ export async function POST(request: Request): Promise<Response> {
       return twimlReply('⚠️ Your phone number is not registered on the Ram-Nath Freight Bidding Platform.')
     }
 
+    // Handle ACCEPT command (e.g., "ACCEPT A3JK" or "CONFIRM A3JK" or "ACCEPT")
+    const upperText = messageText.toUpperCase().trim()
+    const isAcceptCommand = upperText.startsWith('ACCEPT') || upperText.startsWith('CONFIRM') || upperText.startsWith('YES')
+    const isDriverCommand = upperText.startsWith('DRIVER') || upperText.startsWith('TRUCK')
+
+    if (isAcceptCommand) {
+      // Find awarded load for this trucker
+      const refMatch = messageText.match(/\b([A-Z0-9]{4})\b/i)
+      const refCode = refMatch ? refMatch[1].toUpperCase() : null
+
+      let targetLoad: { id: string; reference_code: string; status: string } | null = null
+      if (refCode) {
+        const { data: load } = await admin
+          .from('loads')
+          .select('id, reference_code, status')
+          .eq('reference_code', refCode)
+          .maybeSingle()
+        if (load) targetLoad = load
+      } else {
+        // Find latest awarded load for trucker
+        const { data: wonBid } = await admin
+          .from('bids')
+          .select('load_id, loads(id, reference_code, status)')
+          .eq('trucker_id', truckerId)
+          .eq('status', 'won')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (wonBid && wonBid.loads) {
+          const l = Array.isArray(wonBid.loads) ? wonBid.loads[0] : wonBid.loads
+          targetLoad = l as any
+        }
+      }
+
+      if (!targetLoad) {
+        await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid })
+        return twimlReply('⚠️ No pending load award found to accept. Please specify load code: e.g. ACCEPT A3JK')
+      }
+
+      // Execute accept_award RPC
+      const { error: acceptErr } = await admin.rpc('accept_award', {
+        p_load_id: targetLoad.id,
+        p_trucker_id: truckerId,
+      })
+
+      if (acceptErr && !acceptErr.message.includes('already')) {
+        console.warn(`[twilio-webhook] Accept failed: ${acceptErr.message}`)
+        await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid, relatedLoadId: targetLoad.id })
+        return twimlReply(`⚠️ Acceptance failed: ${acceptErr.message}`)
+      }
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid, relatedLoadId: targetLoad.id })
+      return twimlReply(
+        `🎉 Load #${targetLoad.reference_code} ACCEPTANCE CONFIRMED!\n\n` +
+        `📄 *View Official Warehouse Gate Pass*:\n` +
+        `${baseUrl}/t/loads/${targetLoad.reference_code}/gatepass\n\n` +
+        `🚚 *Next Step:* Reply with your Vehicle & Driver details:\n` +
+        `DRIVER ${targetLoad.reference_code} <NAME> <PHONE> <TRUCK_NO>\n` +
+        `Example: DRIVER ${targetLoad.reference_code} Rajesh 9876543210 TN01AB1234`
+      )
+    }
+
+    if (isDriverCommand) {
+      // Format: DRIVER [REF_CODE] <NAME> <PHONE> <TRUCK_NO>
+      const parts = messageText.split(/\s+/)
+      const refCodeCandidate = parts[1] ? parts[1].toUpperCase() : ''
+
+      let targetLoadId: string | null = null
+      let targetRefCode = ''
+      let nameIndex = 1
+
+      if (refCodeCandidate && /^[A-Z0-9]{4}$/.test(refCodeCandidate)) {
+        const { data: l } = await admin
+          .from('loads')
+          .select('id, reference_code')
+          .eq('reference_code', refCodeCandidate)
+          .maybeSingle()
+        if (l) {
+          targetLoadId = l.id
+          targetRefCode = l.reference_code
+          nameIndex = 2
+        }
+      }
+
+      if (!targetLoadId) {
+        // Fallback to trucker's latest accepted load
+        const { data: acceptedBid } = await admin
+          .from('bids')
+          .select('load_id, loads(id, reference_code, status)')
+          .eq('trucker_id', truckerId)
+          .eq('status', 'won')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (acceptedBid && acceptedBid.loads) {
+          const l = Array.isArray(acceptedBid.loads) ? acceptedBid.loads[0] : acceptedBid.loads
+          targetLoadId = (l as any).id
+          targetRefCode = (l as any).reference_code
+        }
+      }
+
+      if (!targetLoadId) {
+        await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid })
+        return twimlReply('⚠️ Could not match load for driver details. Format: DRIVER <REF_CODE> <NAME> <PHONE> <TRUCK_NO>')
+      }
+
+      const driverDetailsParts = parts.slice(nameIndex)
+      const driverName = driverDetailsParts[0] || 'Assigned Driver'
+      const driverPhone = driverDetailsParts[1] || fromPhone
+      const rawTruckNo = driverDetailsParts[2] || driverDetailsParts[driverDetailsParts.length - 1] || 'MH12AB1234'
+      const truckNumber = rawTruckNo.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+
+      const { error: updateErr } = await admin
+        .from('loads')
+        .update({
+          driver_name: driverName,
+          driver_phone: driverPhone,
+          truck_number: truckNumber,
+        })
+        .eq('id', targetLoadId)
+
+      if (updateErr) {
+        console.warn(`[twilio-webhook] Driver update failed: ${updateErr.message}`)
+        await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid, relatedLoadId: targetLoadId })
+        return twimlReply(`⚠️ Could not save details: ${updateErr.message}`)
+      }
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ramnath-logistics.vercel.app'
+
+      await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid, relatedLoadId: targetLoadId })
+      return twimlReply(
+        `✅ Vehicle & Driver details registered for Load #${targetRefCode}!\n` +
+        `• Driver: ${driverName}\n` +
+        `• Phone: ${driverPhone}\n` +
+        `• Truck No: ${truckNumber}\n\n` +
+        `🌐 View Official Gate Pass:\n` +
+        `${baseUrl}/t/loads/${targetLoadId}/gatepass`
+      )
+    }
+
     // 2. Parse bid message text
     const parsed = parseBidMessage(messageText)
     if (parsed.refCandidates.length === 0) {
       console.warn(`[twilio-webhook] No reference code candidates found in "${messageText}"`)
       await logInbound(admin, { fromPhone, toPhone, body: messageText, messageSid })
-      return twimlReply('⚠️ Please include a valid load reference code (e.g., A3JK 24000).')
+      return twimlReply(
+        '⚠️ Message received! To bid, send: <REF_CODE> <AMOUNT> (e.g. A3JK 24000).\nTo accept an awarded load, send: ACCEPT <REF_CODE>'
+      )
     }
 
     // 3. Resolve load by reference code
@@ -107,8 +250,12 @@ export async function POST(request: Request): Promise<Response> {
       relatedBidId: bidId as string,
     })
 
-    // Return instant confirmation TwiML reply
-    return twimlReply(`✅ Bid of ₹${parsed.amountRupees.toLocaleString('en-IN')} received for Load #${load.reference_code}!`)
+    // Return instant confirmation TwiML reply with portal link
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ramnath-logistics.vercel.app'
+    return twimlReply(
+      `✅ Bid of ₹${parsed.amountRupees.toLocaleString('en-IN')} recorded for Load #${load.reference_code}!\n\n` +
+      `View live auction rank & status:\n${baseUrl}/t/loads/${loadId}`
+    )
   } catch (err) {
     console.error('[twilio-webhook] Processing error:', err)
     return twimlReply('⚠️ System error processing your bid.')

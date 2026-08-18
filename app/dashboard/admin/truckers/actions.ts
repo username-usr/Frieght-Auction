@@ -335,3 +335,17 @@ export async function resetTruckerPasswordAction(id: string): Promise<void> {
 
   revalidatePath('/dashboard/admin/truckers')
 }
+
+export async function deleteTruckerAction(id: string): Promise<void> {
+  await requireAdmin()
+  if (!id) throw new Error('id is required.')
+
+  const supabase = createAdminClient()
+  // 1. Delete trucker load visibility records
+  await supabase.from('load_trucker_visibility').delete().eq('trucker_id', id)
+  // 2. Delete trucker row
+  const { error } = await supabase.from('truckers').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/admin/truckers')
+}

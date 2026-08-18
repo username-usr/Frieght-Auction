@@ -8,7 +8,7 @@ import type { TruckType } from '@/lib/types'
 import type { CurrentTrucker } from '@/lib/trucker'
 
 const FIELD =
-  'mt-1 block w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-900 disabled:cursor-not-allowed disabled:bg-slate-100'
+  'mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 disabled:cursor-not-allowed disabled:bg-slate-100 transition-colors'
 const LABEL = 'block text-sm font-medium text-slate-700'
 
 const TRUCK_TYPES: { value: TruckType; label: string }[] = [
@@ -158,7 +158,7 @@ export function TruckerSettingsForm({ trucker }: { trucker: CurrentTrucker }) {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full rounded-md bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:opacity-60 transition-colors"
+          className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 transition-colors"
         >
           {isPending ? 'Saving Settings...' : 'Save Profile & Fleet Settings'}
         </button>

@@ -6,6 +6,7 @@ import { LoadsTable, type LoadListRow } from '@/components/loads/loads-table'
 import { PostedToast } from '@/components/loads/posted-toast'
 import { StatusFilter } from '@/components/loads/status-filter'
 import { summarizeItemsByProduct } from '@/lib/format'
+import { checkAndAutoAwardExpiredLoads } from '@/lib/auto-award'
 import type { LoadStatus, TruckType } from '@/lib/types'
 
 type FilterValue = LoadStatus | 'all'
@@ -48,6 +49,8 @@ export default async function LoadsPage({
   )
     ? (params.status as FilterValue)
     : 'open'
+
+  await checkAndAutoAwardExpiredLoads()
 
   const { operator, isAdmin } = await getOperatorContext()
 
@@ -127,10 +130,28 @@ export default async function LoadsPage({
     }
   }
 
+  const destsByLoad = new Map<string, string[]>()
+  if (loadIds.length > 0) {
+    const { data: destsRaw } = await supabase
+      .from('load_destinations')
+      .select('load_id, position, address')
+      .in('load_id', loadIds)
+      .order('position', { ascending: true })
+
+    if (destsRaw) {
+      for (const d of destsRaw) {
+        const list = destsByLoad.get(d.load_id)
+        if (list) list.push(d.address)
+        else destsByLoad.set(d.load_id, [d.address])
+      }
+    }
+  }
+
   const loads: LoadListRow[] = rows.map((row) => {
     const items = (itemsByLoad.get(row.id) ?? [])
       .slice()
       .sort((a, b) => a.position - b.position)
+    const dests = destsByLoad.get(row.id) ?? []
     return {
       id: row.id,
       reference_code: row.reference_code,
@@ -145,31 +166,33 @@ export default async function LoadsPage({
       items_summary: summarizeItemsByProduct(
         items.map((i) => i.product?.name ?? null)
       ),
+      drop_stop_count: dests.length,
+      destinations_summary: dests.join(', '),
     }
   })
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       <Suspense fallback={null}>
         <PostedToast />
       </Suspense>
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700">
+          <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.2em] text-blue-700">
             Operations
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
             Loads
           </h1>
-          <p className="mt-2 hidden text-sm text-slate-600 sm:block">
+          <p className="mt-1 hidden text-xs text-slate-600 sm:block">
             Track every shipment from posting to completion.
           </p>
         </div>
         <Link
           href="/dashboard/loads/new"
-          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 sm:px-5"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 active:bg-blue-800 transition-colors"
         >
-          <span aria-hidden="true" className="text-lg leading-none">+</span>
+          <span aria-hidden="true" className="text-base leading-none">+</span>
           New load
         </Link>
       </div>

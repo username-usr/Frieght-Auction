@@ -56,8 +56,8 @@ export function MarkCompletedButton({ loadId }: Props) {
       disabled={isPending}
       className={
         confirming
-          ? 'inline-flex items-center gap-1.5 h-9 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-60 transition-colors'
-          : 'inline-flex items-center gap-1.5 h-9 rounded-md bg-blue-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 shadow-sm disabled:cursor-not-allowed disabled:opacity-60 transition-colors'
+          ? 'inline-flex items-center gap-1.5 h-9 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 shadow-xs disabled:cursor-not-allowed disabled:opacity-60 transition-colors'
+          : 'inline-flex items-center gap-1.5 h-9 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 active:bg-blue-800 shadow-xs disabled:cursor-not-allowed disabled:opacity-60 transition-colors'
       }
     >
       <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

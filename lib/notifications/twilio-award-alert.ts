@@ -42,8 +42,10 @@ export async function sendTwilioAwardNotification(
     const winnerMessage =
       `🎉 *CONGRATULATIONS! LOAD AWARDED*\n\n` +
       `Your bid for Load *#${load.reference_code}* (${load.origin_address} → ${load.destination_address}) has been *AWARDED* to you!\n\n` +
-      `Click the link below to confirm truck & driver details:\n` +
-      `${appUrl}/t/loads/${loadId}`
+      `👉 *ACTION REQUIRED TO CONFIRM LOAD*:\n` +
+      `Reply directly with *CONFIRM ${load.reference_code}* or *ACCEPT ${load.reference_code}* to confirm and unlock your Gate Pass link.\n\n` +
+      `🌐 Or confirm online & view your Gate Pass:\n` +
+      `${appUrl}/t/loads/${load.reference_code}`
 
     try {
       const res = await sendTwilioWhatsAppMessage({
