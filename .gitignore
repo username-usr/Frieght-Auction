@@ -50,3 +50,8 @@ next-env.d.ts
 *datakeys*
 *credentials*
 *secrets*
+
+# Cloudflare / OpenNext build output
+.open-next
+.dev.vars
+.wrangler
