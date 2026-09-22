@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBidMessage } from '@/lib/parse-bid-message'
 
@@ -8,6 +9,16 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const textData = await request.text()
     const params = new URLSearchParams(textData)
+
+    // Authenticate the caller BEFORE trusting anything in the body. Every
+    // branch below keys off the `From` param and then writes through the
+    // service-role client (which bypasses RLS), so without this gate anyone
+    // who knows the URL could forge bids and award acceptances on behalf of
+    // any registered trucker. Fail closed: no token or no/!bad signature = 401.
+    if (!verifyTwilioSignature(request, params)) {
+      console.warn('[twilio-webhook] signature verification failed → 401')
+      return new Response('Invalid signature', { status: 401 })
+    }
 
     const rawFrom = params.get('From') ?? ''
     const rawTo = params.get('To') ?? ''
@@ -260,6 +271,58 @@ export async function POST(request: Request): Promise<Response> {
     console.error('[twilio-webhook] Processing error:', err)
     return twimlReply('⚠️ System error processing your bid.')
   }
+}
+
+// --- signature -------------------------------------------------------------
+
+// Twilio's request-validation scheme (X-Twilio-Signature):
+//   1. Start with the full URL Twilio requested, query string included.
+//   2. Append every POST param as `key + value`, keys sorted alphabetically,
+//      with no separators of any kind.
+//   3. HMAC-SHA1 that string, keyed by the account's AUTH TOKEN, base64.
+// Note it is SHA1 and base64 here — that's Twilio's spec, not a copy/paste
+// slip from the Interakt webhook's SHA256-hex scheme.
+function verifyTwilioSignature(request: Request, params: URLSearchParams): boolean {
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  if (!authToken) {
+    console.error('[twilio-webhook] TWILIO_AUTH_TOKEN is not set — refusing')
+    return false
+  }
+
+  const header = request.headers.get('x-twilio-signature')
+  if (!header) return false
+
+  let payload = twilioRequestUrl(request)
+  for (const key of [...new Set(params.keys())].sort()) {
+    for (const value of params.getAll(key)) {
+      payload += key + value
+    }
+  }
+
+  const expected = createHmac('sha1', authToken).update(payload, 'utf8').digest('base64')
+
+  // Constant-time compare; timingSafeEqual throws on length mismatch, so guard.
+  const a = Buffer.from(header, 'base64')
+  const b = Buffer.from(expected, 'base64')
+  if (a.length !== b.length || a.length === 0) return false
+  return timingSafeEqual(a, b)
+}
+
+// The signature is computed over the URL exactly as Twilio called it, so this
+// has to reproduce that string byte for byte. Behind Cloudflare the incoming
+// `request.url` is normally already the public https URL, but we prefer the
+// forwarded proto/host headers when present. Set TWILIO_WEBHOOK_URL to pin it
+// verbatim if a proxy ever rewrites the URL and signatures start failing.
+function twilioRequestUrl(request: Request): string {
+  const override = process.env.TWILIO_WEBHOOK_URL
+  if (override) return override
+
+  const url = new URL(request.url)
+  const forwardedProto = request.headers.get('x-forwarded-proto')
+  const host = request.headers.get('host')
+  if (forwardedProto) url.protocol = `${forwardedProto.split(',')[0].trim()}:`
+  if (host) url.host = host
+  return url.toString()
 }
 
 function twimlReply(message: string): Response {
